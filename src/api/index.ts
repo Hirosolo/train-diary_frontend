@@ -58,8 +58,9 @@ export const register = (data: RegisterRequest): Promise<RegisterResponse> =>
   }).then(res => res.json());
 
 // --- EXERCISES ---
+// Base Exercise interface
 interface Exercise {
-  exercise_id?: string;
+  exercise_id?: number;
   name: string;
   category?: string;
   default_sets?: number;
@@ -248,32 +249,103 @@ export const applyWorkoutPlan = (data: any) =>
   }).then(res => res.json());
 
 // --- WORKOUT SESSIONS ---
-export const getWorkoutSessions = (params: { user_id?: number; session_id?: number }) => {
+// Types for workout session operations
+interface CreateSessionRequest {
+  user_id: number;
+  scheduled_date: string; // YYYY-MM-DD
+  type?: string;
+  notes?: string;
+}
+
+interface WorkoutSessionExercise {
+  exercise_id: number;
+  planned_sets: number;
+  planned_reps: number;
+}
+
+interface AddExercisesRequest {
+  session_id: number;
+  exercises: WorkoutSessionExercise[];
+}
+
+interface WorkoutLog {
+  actual_sets: number;
+  actual_reps: number;
+  weight_kg?: number;
+  duration_seconds?: number;
+  notes?: string;
+}
+
+interface LogWorkoutRequest {
+  session_detail_id: number;
+  log: WorkoutLog;
+}
+
+// Union type for all possible request types
+type WorkoutSessionRequest = CreateSessionRequest | AddExercisesRequest | LogWorkoutRequest;
+
+interface WorkoutSessionResponse {
+  message?: string;
+  session_id?: number;
+  detail_id?: number;
+}
+
+export const getWorkoutSessions = (params: { user_id?: number; session_id?: number }): Promise<any> => {
   const query = new URLSearchParams(params as Record<string, string>).toString();
   return fetch(`${API_URL}/workout-sessions${query ? `?${query}` : ''}`, {
     headers: getHeaders(),
   }).then(res => res.json());
 };
 
-export const createWorkoutSession = (data: any) =>
-  fetch(`${API_URL}/workout-sessions`, {
+// Helper function to determine which case we're handling
+const isCreateSession = (data: WorkoutSessionRequest): data is CreateSessionRequest => {
+  return 'user_id' in data && 'scheduled_date' in data;
+};
+
+const isAddExercises = (data: WorkoutSessionRequest): data is AddExercisesRequest => {
+  return 'session_id' in data && 'exercises' in data;
+};
+
+const isLogWorkout = (data: WorkoutSessionRequest): data is LogWorkoutRequest => {
+  return 'session_detail_id' in data && 'log' in data;
+};
+
+export const createWorkoutSession = (data: WorkoutSessionRequest): Promise<WorkoutSessionResponse> => {
+  // Type guard to ensure we're sending the correct data structure
+  if (!isCreateSession(data) && !isAddExercises(data) && !isLogWorkout(data)) {
+    return Promise.reject(new Error('Invalid request data structure'));
+  }
+
+  return fetch(`${API_URL}/workout-sessions`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(data),
   }).then(res => res.json());
+};
 
-export const markSessionCompleted = (session_id: number) =>
+// Helper function specifically for adding exercises to a session (Case 2)
+export const addExercisesToSession = (
+  session_id: number, 
+  data: { exercises: WorkoutSessionExercise[] }
+): Promise<WorkoutSessionResponse> => {
+  return createWorkoutSession({
+    session_id,
+    exercises: data.exercises
+  });
+};
+
+export const markSessionCompleted = (session_id: number): Promise<WorkoutSessionResponse> =>
   fetch(`${API_URL}/workout-sessions`, {
     method: 'PUT',
     headers: getHeaders(),
     body: JSON.stringify({ session_id }),
   }).then(res => res.json());
 
-export const deleteWorkoutSession = (data: any) =>
+export const deleteWorkoutSession = (session_id: number): Promise<WorkoutSessionResponse> =>
   fetch(`${API_URL}/workout-sessions`, {
     method: 'DELETE',
     headers: getHeaders(),
-    body: JSON.stringify(data),
+    body: JSON.stringify({ session_id }),
   }).then(res => res.json());
 
 // --- SUMMARY ---

@@ -77,10 +77,6 @@ const sessionTypes = [
   'Custom',
 ];
 
-interface DragSnapshot {
-  isDragging: boolean;
-}
-
 const Workouts: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { triggerRefresh } = useDashboardRefresh();
@@ -97,7 +93,6 @@ const Workouts: React.FC = () => {
   const [detailsModal, setDetailsModal] = useState<{ session: Session; open: boolean } | null>(null);
   const [sessionDetails, setSessionDetails] = useState<SessionDetail[]>([]);
   const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
-  const [showAddExercise, setShowAddExercise] = useState(false);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [addExerciseForm, setAddExerciseForm] = useState({ exercise_id: '', planned_sets: '', planned_reps: '' });
   const [deleteSessionConfirm, setDeleteSessionConfirm] = useState<number | null>(null);
@@ -115,8 +110,6 @@ const Workouts: React.FC = () => {
   const [logForm, setLogForm] = useState({ actual_sets: '', actual_reps: '', weight_kg: '', notes: '' });
   const [logExerciseId, setLogExerciseId] = useState<number | null>(null);
   const [completingSession, setCompletingSession] = useState(false);
-  const [reorderExerciseId, setReorderExerciseId] = useState<number | null>(null);
-  const [reorderLogId, setReorderLogId] = useState<number | null>(null);
 
   useEffect(() => {
     if (user && !authLoading) fetchSessions();
@@ -193,14 +186,6 @@ const Workouts: React.FC = () => {
       console.error('Error scheduling session:', error);
       setError('Failed to schedule session. Please try again.');
     }
-  };
-
-  const handleSelectExercise = (exercise: Exercise) => {
-    setAddExerciseForm({
-      exercise_id: exercise.exercise_id.toString(),
-      planned_sets: exercise.default_sets?.toString() || '',
-      planned_reps: exercise.default_reps?.toString() || ''
-    });
   };
 
   const handleDeleteExercise = async (detailId: number) => {
@@ -309,7 +294,7 @@ const Workouts: React.FC = () => {
     try {
       const detail = sessionDetails.find(d => d.exercise_id === logExerciseId);
       if (!detail) return;
-      const res = await fetch('http://localhost:4000/api/workouts/log', {
+      await fetch('http://localhost:4000/api/workouts/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
