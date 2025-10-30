@@ -1,4 +1,4 @@
-const API_URL = 'https://train-diary-backend.vercel.app/';
+const API_URL = 'https://train-diary-backend.vercel.app';
 
 let token: string | null = localStorage.getItem('token');
 
@@ -32,12 +32,25 @@ interface LoginResponse {
   token?: string;
 }
 
-export const login = (data: LoginRequest): Promise<LoginResponse> =>
-  fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data),
-  }).then(res => res.json());
+export const login = async (data: LoginRequest): Promise<LoginResponse> => {
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+};
 
 interface RegisterRequest {
   username: string;
