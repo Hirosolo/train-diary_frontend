@@ -1,4 +1,4 @@
-const API_URL = 'https://train-diary-backend.vercel.app';
+const API_URL = 'https://train-diary-backend.vercel.app/api';
 
 let token: string | null = localStorage.getItem('token');
 
@@ -10,6 +10,7 @@ export const setToken = (newToken: string) => {
 const getHeaders = (isJson = true) => ({
   ...(isJson ? { 'Content-Type': 'application/json' } : {}),
   Accept: 'application/json',
+  'Access-Control-Allow-Credentials': 'true',
   ...(token || localStorage.getItem('token')
     ? { Authorization: `Bearer ${token || localStorage.getItem('token')}` }
     : {}),
