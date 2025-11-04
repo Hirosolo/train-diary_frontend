@@ -1,4 +1,5 @@
-const API_URL = 'https://train-diary-backend.vercel.app/api';
+const API_URL = 'https://train-diary-backend.vercel.app/aSpi';
+import { notifyError, notifySuccess } from '../context/notify';
 
 let token: string | null = localStorage.getItem('token');
 
@@ -15,6 +16,50 @@ const getHeaders = (isJson = true) => ({
     ? { Authorization: `Bearer ${token || localStorage.getItem('token')}` }
     : {}),
 });
+
+// Unified request helper with error handling and notification
+async function request<T = any>(input: RequestInfo | URL, init?: RequestInit & { successMessage?: string }): Promise<T> {
+  try {
+    const { successMessage, ...opts } = init || {};
+    const res = await fetch(input, opts);
+
+    const contentType = res.headers.get('content-type') || '';
+    let body: any = null;
+    try {
+      body = contentType.includes('application/json') ? await res.json() : await res.text();
+    } catch (_) {
+      body = null;
+    }
+
+    if (!res.ok) {
+      const backendMessage = body && (body.message || body.error);
+      const message = backendMessage
+        ? String(backendMessage)
+        : `The request failed (code ${res.status}). Please try again. If this keeps happening, contact support.`;
+      notifyError(message);
+      throw new Error(message);
+    }
+
+    if (successMessage) {
+      notifySuccess(successMessage);
+    }
+
+    return body as T;
+  } catch (err: any) {
+    let message = 'We could not connect to the server. Please check your connection and try again. If the issue persists, contact support.';
+    if (err && err.message) {
+      const lower = String(err.message).toLowerCase();
+      if (lower.includes('failed to fetch') || lower.includes('network') || lower.includes('load')) {
+        // keep friendly copy above
+      } else {
+        // For other unexpected errors, still show friendly message but append short code
+        message = `${message} (Details: ${err.message})`;
+      }
+    }
+    notifyError(message);
+    throw err instanceof Error ? err : new Error(message);
+  }
+}
 
 // Types based on API documentation
 interface LoginRequest {
@@ -34,23 +79,12 @@ interface LoginResponse {
 }
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  try {
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(data),
-      credentials: 'include',
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    return response.json();
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
+  return request<LoginResponse>(`${API_URL}/auth/login`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+    credentials: 'include',
+  });
 };
 
 interface RegisterRequest {
@@ -65,11 +99,11 @@ interface RegisterResponse {
 }
 
 export const register = (data: RegisterRequest): Promise<RegisterResponse> =>
-  fetch(`${API_URL}/auth/register`, {
+  request<RegisterResponse>(`${API_URL}/auth/register`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(data),
-  }).then(res => res.json());
+  });
 
 // --- EXERCISES ---
 // Base Exercise interface
@@ -88,7 +122,7 @@ interface ExerciseResponse {
 }
 
 export const getExercises = (): Promise<ExerciseResponse> =>
-  fetch(`${API_URL}/exercises`, { headers: getHeaders() }).then(res => res.json());
+  request<ExerciseResponse>(`${API_URL}/exercises`, { headers: getHeaders() });
 
 interface ExerciseCreateResponse {
   exercise_id: string;
@@ -96,22 +130,24 @@ interface ExerciseCreateResponse {
 }
 
 export const addExercise = (data: Exercise): Promise<ExerciseCreateResponse> =>
-  fetch(`${API_URL}/exercises`, {
+  request<ExerciseCreateResponse>(`${API_URL}/exercises`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(data),
-  }).then(res => res.json());
+    successMessage: 'Exercise added',
+  });
 
 interface ExerciseDeleteResponse {
   message: string;
 }
 
 export const deleteExercise = (exercise_id: string): Promise<ExerciseDeleteResponse> =>
-  fetch(`${API_URL}/exercises`, {
+  request<ExerciseDeleteResponse>(`${API_URL}/exercises`, {
     method: 'DELETE',
     headers: getHeaders(),
     body: JSON.stringify({ exercise_id }),
-  }).then(res => res.json());
+    successMessage: 'Exercise deleted',
+  });
 
 // --- FOODS ---
 interface Food {
@@ -132,9 +168,9 @@ interface FoodResponse {
 }
 
 export const getFoods = (food_id?: number): Promise<FoodResponse> =>
-  fetch(`${API_URL}/foods${food_id ? `?food_id=${food_id}` : ''}`, {
+  request<FoodResponse>(`${API_URL}/foods${food_id ? `?food_id=${food_id}` : ''}`, {
     headers: getHeaders(),
-  }).then(res => res.json());
+  });
 
 interface FoodCreateResponse {
   food_id: number;
@@ -142,33 +178,36 @@ interface FoodCreateResponse {
 }
 
 export const addFood = (data: Food): Promise<FoodCreateResponse> =>
-  fetch(`${API_URL}/foods`, {
+  request<FoodCreateResponse>(`${API_URL}/foods`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(data),
-  }).then(res => res.json());
+    successMessage: 'Food added',
+  });
 
 interface FoodUpdateResponse {
   message: string;
 }
 
 export const updateFood = (data: Food & { food_id: number }): Promise<FoodUpdateResponse> =>
-  fetch(`${API_URL}/foods`, {
+  request<FoodUpdateResponse>(`${API_URL}/foods`, {
     method: 'PUT',
     headers: getHeaders(),
     body: JSON.stringify(data),
-  }).then(res => res.json());
+    successMessage: 'Food updated',
+  });
 
 interface FoodDeleteResponse {
   message: string;
 }
 
 export const deleteFood = (food_id: number): Promise<FoodDeleteResponse> =>
-  fetch(`${API_URL}/foods`, {
+  request<FoodDeleteResponse>(`${API_URL}/foods`, {
     method: 'DELETE',
     headers: getHeaders(),
     body: JSON.stringify({ food_id }),
-  }).then(res => res.json());
+    successMessage: 'Food deleted',
+  });
 
 // --- SUMMARY ---
 interface DailyData {
@@ -205,11 +244,11 @@ interface GenerateSummaryResponse {
 }
 
 export const generateSummary = (params: GenerateSummaryRequest): Promise<GenerateSummaryResponse> => {
-  return fetch(`${API_URL}/summary`, {
+  return request<GenerateSummaryResponse>(`${API_URL}/summary`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(params),
-  }).then(res => res.json());
+  });
 };
 
 export const getSummary = (params: GenerateSummaryRequest): Promise<Summary> => {
@@ -217,50 +256,54 @@ export const getSummary = (params: GenerateSummaryRequest): Promise<Summary> => 
     Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
   ).toString();
 
-  return fetch(`${API_URL}/summary?${query}`, {
+  return request<Summary>(`${API_URL}/summary?${query}`, {
     headers: getHeaders(),
-  }).then(res => res.json());
+  });
 };
 
 // --- FOOD LOGS ---
 export const getFoodLogs = (meal_id?: number) =>
-  fetch(`${API_URL}/food-logs${meal_id ? `?meal_id=${meal_id}` : ''}`, {
+  request(`${API_URL}/food-logs${meal_id ? `?meal_id=${meal_id}` : ''}`, {
     headers: getHeaders(),
-  }).then(res => res.json());
+  });
 
 export const addFoodLog = (data: any) =>
-  fetch(`${API_URL}/food-logs`, {
+  request(`${API_URL}/food-logs`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(data),
-  }).then(res => res.json());
+    successMessage: 'Food log added',
+  });
 
 export const updateFoodLog = (data: any) =>
-  fetch(`${API_URL}/food-logs`, {
+  request(`${API_URL}/food-logs`, {
     method: 'PUT',
     headers: getHeaders(),
     body: JSON.stringify(data),
-  }).then(res => res.json());
+    successMessage: 'Food log updated',
+  });
 
 export const deleteFoodLog = (meal_id: number) =>
-  fetch(`${API_URL}/food-logs`, {
+  request(`${API_URL}/food-logs`, {
     method: 'DELETE',
     headers: getHeaders(),
     body: JSON.stringify({ meal_id }),
-  }).then(res => res.json());
+    successMessage: 'Food log deleted',
+  });
 
 // --- WORKOUT PLANS ---
 export const getWorkoutPlans = (plan_id?: number) =>
-  fetch(`${API_URL}/workout-plans${plan_id ? `?plan_id=${plan_id}` : ''}`, {
+  request(`${API_URL}/workout-plans${plan_id ? `?plan_id=${plan_id}` : ''}`, {
     headers: getHeaders(),
-  }).then(res => res.json());
+  });
 
 export const applyWorkoutPlan = (data: any) =>
-  fetch(`${API_URL}/workout-plans`, {
+  request(`${API_URL}/workout-plans`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(data),
-  }).then(res => res.json());
+    successMessage: 'Workout plan applied',
+  });
 
 // --- WORKOUT SESSIONS ---
 // Types for workout session operations
@@ -306,9 +349,9 @@ interface WorkoutSessionResponse {
 
 export const getWorkoutSessions = (params: { user_id?: number; session_id?: number }): Promise<any> => {
   const query = new URLSearchParams(params as Record<string, string>).toString();
-  return fetch(`${API_URL}/workout-sessions${query ? `?${query}` : ''}`, {
+  return request(`${API_URL}/workout-sessions${query ? `?${query}` : ''}`, {
     headers: getHeaders(),
-  }).then(res => res.json());
+  });
 };
 
 // Helper function to determine which case we're handling
@@ -330,11 +373,11 @@ export const createWorkoutSession = (data: WorkoutSessionRequest): Promise<Worko
     return Promise.reject(new Error('Invalid request data structure'));
   }
 
-  return fetch(`${API_URL}/workout-sessions`, {
+  return request(`${API_URL}/workout-sessions`, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(data),
-  }).then(res => res.json());
+  });
 };
 
 // Helper function specifically for adding exercises to a session (Case 2)
@@ -349,17 +392,19 @@ export const addExercisesToSession = (
 };
 
 export const markSessionCompleted = (session_id: number): Promise<WorkoutSessionResponse> =>
-  fetch(`${API_URL}/workout-sessions`, {
+  request(`${API_URL}/workout-sessions`, {
     method: 'PUT',
     headers: getHeaders(),
     body: JSON.stringify({ session_id }),
-  }).then(res => res.json());
+    successMessage: 'Session marked complete',
+  });
 
 export const deleteWorkoutSession = (session_id: number): Promise<WorkoutSessionResponse> =>
-  fetch(`${API_URL}/workout-sessions`, {
+  request(`${API_URL}/workout-sessions`, {
     method: 'DELETE',
     headers: getHeaders(),
     body: JSON.stringify({ session_id }),
-  }).then(res => res.json());
+    successMessage: 'Session deleted',
+  });
 
 // --- SUMMARY ---
