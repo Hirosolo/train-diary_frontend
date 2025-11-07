@@ -268,7 +268,7 @@ const Workouts: React.FC = () => {
 
     try {
       // Note: Reorder endpoint not in index.ts - keeping direct fetch
-      const API_URL = "https://train-diary-backend.vercel.app/aSpi";
+      const API_URL = "https://train-diary-backend.vercel.app/api";
       const token = localStorage.getItem("token");
 
       await fetch(`${API_URL}/workout-sessions/reorder`, {

@@ -1,36 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import Navbar from '../components/NavBar/NavBar';
-import { useAuth } from '../context/AuthContext';
-import { useDashboardRefresh } from '../context/DashboardRefreshContext';
-import { FaUtensils, FaFire, FaDumbbell, FaLeaf } from 'react-icons/fa';
-import { HiPlusSm } from 'react-icons/hi';
+import React, { useEffect, useState } from "react";
+import Navbar from "../components/NavBar/NavBar";
+import { useAuth } from "../context/AuthContext";
+import { useDashboardRefresh } from "../context/DashboardRefreshContext";
+import { FaUtensils, FaFire, FaDumbbell, FaLeaf } from "react-icons/fa";
+import { HiPlusSm } from "react-icons/hi";
 import {
   PageContainer,
-  PageHeader,
   CardGrid,
   Card,
   ModalContent,
   GridForm,
-  StatCard
-} from '../components/shared/SharedComponents';
-import styles from './Foods.module.css';
+  StatCard,
+} from "../components/shared/SharedComponents";
+import styles from "./Foods.module.css";
+
+const API_URL = "https://train-diary-backend.vercel.app/api";
 
 interface Meal {
   meal_id: number;
   log_date: string;
   meal_type: string;
 }
+
 interface MealFood {
-  food_id: number;
   name: string;
-  amount_grams: number;
   calories_per_serving: number;
   protein_per_serving: number;
   carbs_per_serving: number;
   fat_per_serving: number;
-  serving_type: string;
-  image?: string;
+  amount_grams: number;
 }
+
 interface Food {
   food_id: number;
   name: string;
@@ -41,6 +41,7 @@ interface Food {
   serving_type: string;
   image?: string;
 }
+
 interface MealWithFoods extends Meal {
   foods: MealFood[];
 }
@@ -48,17 +49,20 @@ interface MealWithFoods extends Meal {
 const Foods: React.FC = () => {
   const { user } = useAuth();
   const { triggerRefresh } = useDashboardRefresh();
+
   const [meals, setMeals] = useState<MealWithFoods[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ log_date: '', meal_type: 'breakfast' });
-  const [mealFoods, setMealFoods] = useState<{ food: Food; amount_grams: string }[]>([]);
+  const [form, setForm] = useState({ log_date: "", meal_type: "breakfast" });
+  const [mealFoods, setMealFoods] = useState<
+    { food: Food; amount_grams: string }[]
+  >([]);
   const [showFoodModal, setShowFoodModal] = useState(false);
   const [foods, setFoods] = useState<Food[]>([]);
-  const [foodSearch, setFoodSearch] = useState('');
+  const [foodSearch, setFoodSearch] = useState("");
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
-  const [amountGrams, setAmountGrams] = useState('');
-  const [error, setError] = useState('');
+  const [amountGrams, setAmountGrams] = useState("");
+  const [error, setError] = useState("");
   const [expandedMeal, setExpandedMeal] = useState<number | null>(null);
   const [mealDetails, setMealDetails] = useState<MealFood[]>([]);
   const [deleteMealId, setDeleteMealId] = useState<number | null>(null);
@@ -66,31 +70,24 @@ const Foods: React.FC = () => {
     calories: 0,
     protein: 0,
     carbs: 0,
-    fat: 0
+    fat: 0,
   });
 
   useEffect(() => {
     if (user) fetchMeals();
-    // eslint-disable-next-line
   }, [user]);
 
   useEffect(() => {
     if (meals.length > 0) {
       const today = new Date().toISOString().slice(0, 10);
-      const todayMeals = meals.filter(m => m.log_date.slice(0, 10) === today);
-      
-      const totals = {
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0
-      };
+      const todayMeals = meals.filter((m) => m.log_date.slice(0, 10) === today);
+      const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
 
-      todayMeals.forEach(meal => {
-        totals.calories += calculateMealNutrition(meal.foods, 'calories');
-        totals.protein += calculateMealNutrition(meal.foods, 'protein');
-        totals.carbs += calculateMealNutrition(meal.foods, 'carbs');
-        totals.fat += calculateMealNutrition(meal.foods, 'fat');
+      todayMeals.forEach((meal) => {
+        totals.calories += calculateMealNutrition(meal.foods, "calories");
+        totals.protein += calculateMealNutrition(meal.foods, "protein");
+        totals.carbs += calculateMealNutrition(meal.foods, "carbs");
+        totals.fat += calculateMealNutrition(meal.foods, "fat");
       });
 
       setDailyTotals(totals);
@@ -100,43 +97,56 @@ const Foods: React.FC = () => {
   const fetchMeals = async () => {
     setLoading(true);
     try {
-      // Fetch basic meal data
-      const mealsRes = await fetch(`http://localhost:4000/api/foods/meals?user_id=${user?.user_id}`);
+      const mealsRes = await fetch(`${API_URL}/food-logs?user_id=${user?.user_id}`);
       const mealsData = await mealsRes.json();
-      
-      // Fetch food details for each meal
+
       const mealsWithFoods = await Promise.all(
         mealsData.map(async (meal: Meal) => {
-          const foodsRes = await fetch(`http://localhost:4000/api/foods/meals/${meal.meal_id}`);
+          const foodsRes = await fetch(`${API_URL}/food-logs?meal_id=${meal.meal_id}`);
           const foodsData = await foodsRes.json();
-          return { ...meal, foods: foodsData };
+
+          const flattenedFoods =
+            foodsData[0]?.user_meal_details?.map((detail: any) => ({
+              name: detail.foods.name,
+              calories_per_serving: detail.foods.calories_per_serving,
+              protein_per_serving: detail.foods.protein_per_serving,
+              carbs_per_serving: detail.foods.carbs_per_serving,
+              fat_per_serving: detail.foods.fat_per_serving,
+              amount_grams: detail.amount_grams,
+            })) || [];
+
+          return { ...meal, foods: flattenedFoods };
         })
       );
-      
+
       setMeals(mealsWithFoods);
     } catch (error) {
-      console.error('Error fetching meals:', error);
+      console.error("Error fetching meals:", error);
     }
     setLoading(false);
   };
 
   const fetchFoods = async () => {
-    const res = await fetch('http://localhost:4000/api/foods');
-    const data = await res.json();
-    setFoods(data);
+    try {
+      const res = await fetch(`${API_URL}/food-logs`);
+      const data = await res.json();
+      setFoods(data);
+    } catch (err) {
+      console.error("Error fetching foods:", err);
+    }
   };
 
   const handleAddFood = () => {
-    setFoodSearch('');
+    setFoodSearch("");
     setSelectedFood(null);
-    setAmountGrams('');
+    setAmountGrams("");
     fetchFoods();
     setShowFoodModal(true);
   };
 
   const handleSelectFood = (food: Food) => {
     setSelectedFood(food);
-    setAmountGrams('');
+    setAmountGrams("");
   };
 
   const handleAddFoodToMeal = () => {
@@ -144,76 +154,50 @@ const Foods: React.FC = () => {
       setMealFoods([...mealFoods, { food: selectedFood, amount_grams: amountGrams }]);
       setShowFoodModal(false);
       setSelectedFood(null);
-      setAmountGrams('');
+      setAmountGrams("");
     }
   };
 
   const handleLogMeal = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
+
     if (mealFoods.length === 0) {
-      setError('Add at least one food.');
+      setError("Add at least one food.");
       return;
     }
-    const foodsPayload = mealFoods.map(f => ({ food_id: f.food.food_id, amount_grams: f.amount_grams }));    try {
-      setError('');
-      
-      // Step 1: Log the meal
-      const res = await fetch('http://localhost:4000/api/foods/meals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user?.user_id, meal_type: form.meal_type, log_date: form.log_date, foods: foodsPayload })
+
+    const foodsPayload = mealFoods.map((f) => ({
+      food_id: f.food.food_id,
+      amount_grams: f.amount_grams,
+    }));
+
+    try {
+      const res = await fetch(`${API_URL}/food-logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user?.user_id,
+          meal_type: form.meal_type,
+          log_date: form.log_date,
+          foods: foodsPayload,
+        }),
       });
+
       const data = await res.json();
-      
-      if (data.meal_id) {        // Step 2: Generate new summaries (both daily and weekly)
-        const generateSummaries = async () => {
-          // Generate daily summary
-          const dailySummaryRes = await fetch('http://localhost:4000/api/summary/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: user?.user_id,
-              period_type: 'daily',
-              period_start: new Date().toISOString().slice(0, 10)
-            })
-          });
 
-          if (!dailySummaryRes.ok) {
-            console.error('Failed to generate daily summary:', await dailySummaryRes.text());
-          }
-
-          // Generate weekly summary
-          const weeklySummaryRes = await fetch('http://localhost:4000/api/summary/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: user?.user_id,
-              period_type: 'weekly',
-              period_start: new Date().toISOString().slice(0, 10)
-            })
-          });
-
-          if (!weeklySummaryRes.ok) {
-            console.error('Failed to generate weekly summary:', await weeklySummaryRes.text());
-          }
-        };
-
-        await generateSummaries();
-        // Step 3: Clean up UI state
-        setShowForm(false);
-        setForm({ log_date: '', meal_type: 'breakfast' });
-        setMealFoods([]);
-        
-        // Step 4: Refresh data
+      if (data.data?.meal_id) {
         await fetchMeals();
         triggerRefresh();
+        setForm({ log_date: "", meal_type: "breakfast" });
+        setMealFoods([]);
+        setShowForm(false);
       } else {
-        setError(data.message || 'Failed to log meal');
+        setError(data.message || "Failed to log meal.");
       }
     } catch (err) {
-      console.error('Error logging meal:', err);
-      setError('Failed to log meal. Please try again.');
+      console.error("Error logging meal:", err);
+      setError("Failed to log meal. Please try again.");
     }
   };
 
@@ -223,77 +207,109 @@ const Foods: React.FC = () => {
       setMealDetails([]);
       return;
     }
-    setExpandedMeal(meal_id);
-    const res = await fetch(`http://localhost:4000/api/foods/meals/${meal_id}`);
-    const data = await res.json();
-    setMealDetails(data);
-  };
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
+    try {
+      const res = await fetch(`${API_URL}/food-logs?meal_id=${meal_id}`);
+      const data = await res.json();
 
-  const handleDeleteMeal = (meal_id: number) => {
-    setDeleteMealId(meal_id);
+      const flattenedDetails =
+        data[0]?.user_meal_details?.map((detail: any) => ({
+          name: detail.foods.name,
+          calories_per_serving: detail.foods.calories_per_serving,
+          protein_per_serving: detail.foods.protein_per_serving,
+          carbs_per_serving: detail.foods.carbs_per_serving,
+          fat_per_serving: detail.foods.fat_per_serving,
+          amount_grams: detail.amount_grams,
+        })) || [];
+
+      setExpandedMeal(meal_id);
+      setMealDetails(flattenedDetails);
+    } catch (err) {
+      console.error("Error loading meal details:", err);
+    }
   };
 
   const confirmDeleteMeal = async () => {
     if (deleteMealId) {
-      await fetch(`http://localhost:4000/api/foods/meals/${deleteMealId}`, { method: 'DELETE' });
-      setDeleteMealId(null);
-      fetchMeals();
-      triggerRefresh();
+      try {
+        const res = await fetch(`${API_URL}/food-logs`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ meal_id: deleteMealId }),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("Failed to delete meal:", errText);
+          return;
+        }
+
+        setDeleteMealId(null);
+        await fetchMeals();
+        triggerRefresh();
+      } catch (err) {
+        console.error("Error deleting meal:", err);
+      }
     }
   };
 
-  const calculateMealNutrition = (meal: MealFood[], type: 'calories' | 'protein' | 'carbs' | 'fat'): number => {
+  const calculateMealNutrition = (
+    meal: MealFood[],
+    type: "calories" | "protein" | "carbs" | "fat"
+  ): number => {
     return meal.reduce((total, food) => {
       const servingMultiplier = food.amount_grams / 100;
       switch (type) {
-        case 'calories':
-          return total + (food.calories_per_serving * servingMultiplier);
-        case 'protein':
-          return total + (food.protein_per_serving * servingMultiplier);
-        case 'carbs':
-          return total + (food.carbs_per_serving * servingMultiplier);
-        case 'fat':
-          return total + (food.fat_per_serving * servingMultiplier);
+        case "calories":
+          return total + food.calories_per_serving * servingMultiplier;
+        case "protein":
+          return total + food.protein_per_serving * servingMultiplier;
+        case "carbs":
+          return total + food.carbs_per_serving * servingMultiplier;
+        case "fat":
+          return total + food.fat_per_serving * servingMultiplier;
       }
     }, 0);
+  };
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   return (
     <PageContainer>
       <Navbar />
-      <div style={{ marginTop: '2.5rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <h2 className={styles.dashboardTitle} style={{ textAlign: 'center' }}>Food Log</h2>
-        <button className={styles.logMealBtn} style={{ alignSelf: 'center' }} onClick={() => setShowForm(true)}>
+      <div
+        style={{
+          marginTop: "2.5rem",
+          marginBottom: "1.5rem",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
+      >
+        <h2 className={styles.dashboardTitle} style={{ textAlign: "center" }}>
+          Food Log
+        </h2>
+        <button
+          className={styles.logMealBtn}
+          style={{ alignSelf: "center" }}
+          onClick={() => setShowForm(true)}
+        >
           <HiPlusSm /> Log New Meal
         </button>
       </div>
 
       <CardGrid className={styles.statsGrid}>
-        <StatCard 
-          value={dailyTotals.calories.toFixed(0)}
-          label="Total Calories"
-          icon={<FaFire />}
-        />
-        <StatCard 
-          value={`${dailyTotals.protein.toFixed(1)}g`}
-          label="Protein"
-          icon={<FaDumbbell />}
-        />
-        <StatCard 
-          value={`${dailyTotals.carbs.toFixed(1)}g`}
-          label="Carbs"
-          icon={<FaUtensils />}
-        />
-        <StatCard 
-          value={`${dailyTotals.fat.toFixed(1)}g`}
-          label="Fat"
-          icon={<FaLeaf />}
-        />
+        <StatCard value={dailyTotals.calories.toFixed(0)} label="Total Calories" icon={<FaFire />} />
+        <StatCard value={`${dailyTotals.protein.toFixed(1)}g`} label="Protein" icon={<FaDumbbell />} />
+        <StatCard value={`${dailyTotals.carbs.toFixed(1)}g`} label="Carbs" icon={<FaUtensils />} />
+        <StatCard value={`${dailyTotals.fat.toFixed(1)}g`} label="Fat" icon={<FaLeaf />} />
       </CardGrid>
 
       <CardGrid>
@@ -309,7 +325,7 @@ const Foods: React.FC = () => {
             </button>
           </Card>
         ) : (
-          meals.map(meal => (
+          meals.map((meal) => (
             <Card key={meal.meal_id} className={styles.mealCard}>
               <div className={styles.mealHeader}>
                 <div>
@@ -319,21 +335,21 @@ const Foods: React.FC = () => {
                   <p className={styles.mealDate}>{formatDate(meal.log_date)}</p>
                 </div>
                 <div className={styles.mealActions}>
-                  <button 
+                  <button
                     className={styles.detailsBtn}
                     onClick={() => handleExpandMeal(meal.meal_id)}
                   >
-                    {expandedMeal === meal.meal_id ? 'Hide Details' : 'Show Details'}
+                    {expandedMeal === meal.meal_id ? "Hide Details" : "Show Details"}
                   </button>
-                  <button 
+                  <button
                     className={styles.deleteBtn}
-                    onClick={() => handleDeleteMeal(meal.meal_id)}
+                    onClick={() => setDeleteMealId(meal.meal_id)}
                   >
                     Delete
                   </button>
                 </div>
               </div>
-              
+
               {expandedMeal === meal.meal_id && (
                 <div className={styles.mealDetails}>
                   {mealDetails.map((food, idx) => (
@@ -343,8 +359,12 @@ const Foods: React.FC = () => {
                         <span className={styles.foodAmount}>{food.amount_grams}g</span>
                       </div>
                       <div className={styles.foodNutrition}>
-                        <span>{(food.calories_per_serving * food.amount_grams / 100).toFixed(0)} cal</span>
-                        <span>{(food.protein_per_serving * food.amount_grams / 100).toFixed(1)}g protein</span>
+                        <span>
+                          {(food.calories_per_serving * food.amount_grams / 100).toFixed(0)} cal
+                        </span>
+                        <span>
+                          {(food.protein_per_serving * food.amount_grams / 100).toFixed(1)}g protein
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -355,23 +375,25 @@ const Foods: React.FC = () => {
         )}
       </CardGrid>
 
+      {/* --- Add Meal Modal --- */}
       {showForm && (
-        <ModalContent title="Log New Meal">
+        <ModalContent title="Log New Meal" onClose={() => setShowForm(false)}>
           <GridForm onSubmit={handleLogMeal}>
-            <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
+            <div className={styles.formGroup} style={{ gridColumn: "1 / -1" }}>
               <label>Date</label>
               <input
                 type="date"
                 value={form.log_date}
-                onChange={e => setForm({ ...form, log_date: e.target.value })}
+                onChange={(e) => setForm({ ...form, log_date: e.target.value })}
                 required
               />
             </div>
-            <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
+
+            <div className={styles.formGroup} style={{ gridColumn: "1 / -1" }}>
               <label>Meal Type</label>
               <select
                 value={form.meal_type}
-                onChange={e => setForm({ ...form, meal_type: e.target.value })}
+                onChange={(e) => setForm({ ...form, meal_type: e.target.value })}
                 required
               >
                 <option value="breakfast">Breakfast</option>
@@ -389,7 +411,7 @@ const Foods: React.FC = () => {
                   <button
                     type="button"
                     className="btn-icon-danger"
-                    onClick={() => setMealFoods(foods => foods.filter((_, i) => i !== idx))}
+                    onClick={() => setMealFoods((foods) => foods.filter((_, i) => i !== idx))}
                   >
                     Remove
                   </button>
@@ -401,7 +423,7 @@ const Foods: React.FC = () => {
             </div>
 
             {error && <div className={styles.error}>{error}</div>}
-            
+
             <div className={styles.modalActions}>
               <button type="submit" className="btn-primary">Save Meal</button>
               <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
@@ -412,6 +434,7 @@ const Foods: React.FC = () => {
         </ModalContent>
       )}
 
+      {/* --- Add Food Modal --- */}
       {showFoodModal && (
         <ModalContent title="Add Food to Meal">
           <div className={styles.foodSearchGrid}>
@@ -419,20 +442,20 @@ const Foods: React.FC = () => {
               type="text"
               placeholder="Search foods..."
               value={foodSearch}
-              onChange={e => setFoodSearch(e.target.value)}
+              onChange={(e) => setFoodSearch(e.target.value)}
               className={styles.searchInput}
             />
           </div>
 
           <div className={styles.foodsGrid}>
             {foods
-              .filter(food => 
-                food.name.toLowerCase().includes(foodSearch.toLowerCase())
-              )
-              .map(food => (
-                <div 
-                  key={food.food_id} 
-                  className={`${styles.foodOption} ${selectedFood?.food_id === food.food_id ? styles.selected : ''}`}
+              .filter((food) => food.name.toLowerCase().includes(foodSearch.toLowerCase()))
+              .map((food) => (
+                <div
+                  key={food.food_id}
+                  className={`${styles.foodOption} ${
+                    selectedFood?.food_id === food.food_id ? styles.selected : ""
+                  }`}
                   onClick={() => handleSelectFood(food)}
                 >
                   <div className={styles.foodOptionInfo}>
@@ -442,24 +465,23 @@ const Foods: React.FC = () => {
                     </span>
                   </div>
                 </div>
-              ))
-            }
+              ))}
           </div>
 
           {selectedFood && (
-            <div className={styles.formGroup} style={{ maxWidth: 'none', margin: '1rem 0' }}>
+            <div className={styles.formGroup} style={{ maxWidth: "none", margin: "1rem 0" }}>
               <label>Amount ({selectedFood.serving_type})</label>
               <input
                 type="number"
                 value={amountGrams}
-                onChange={e => setAmountGrams(e.target.value)}
+                onChange={(e) => setAmountGrams(e.target.value)}
                 min="0"
                 required
               />
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '1rem' }}>
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginTop: "1rem" }}>
             <button
               className={styles.addFoodToMealBtn}
               onClick={handleAddFoodToMeal}
@@ -479,23 +501,14 @@ const Foods: React.FC = () => {
         </ModalContent>
       )}
 
+      {/* --- Delete Confirmation --- */}
       {deleteMealId && (
         <ModalContent title="Delete Meal" onClose={() => setDeleteMealId(null)}>
           <div className={styles.deleteConfirm}>
             <p>Are you sure you want to delete this meal?</p>
             <div className={styles.modalActions}>
-              <button 
-                className="btn-danger"
-                onClick={confirmDeleteMeal}
-              >
-                Delete
-              </button>
-              <button 
-                className="btn-secondary"
-                onClick={() => setDeleteMealId(null)}
-              >
-                Cancel
-              </button>
+              <button className="btn-danger" onClick={confirmDeleteMeal}>Delete</button>
+              <button className="btn-secondary" onClick={() => setDeleteMealId(null)}>Cancel</button>
             </div>
           </div>
         </ModalContent>
