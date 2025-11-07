@@ -1,4 +1,4 @@
-const API_URL = 'https://train-diary-backend.vercel.app/aSpi';
+const API_URL = 'https://train-diary-backend.vercel.app/api';
 import { notifyError, notifySuccess } from '../context/notify';
 
 let token: string | null = localStorage.getItem('token');
@@ -107,8 +107,8 @@ export const register = (data: RegisterRequest): Promise<RegisterResponse> =>
 
 // --- EXERCISES ---
 // Base Exercise interface
-interface Exercise {
-  exercise_id?: number;
+export interface Exercise {
+  exercise_id: number;
   name: string;
   category?: string;
   default_sets?: number;
@@ -117,7 +117,7 @@ interface Exercise {
 }
 
 interface ExerciseResponse {
-  exercises?: Exercise[];
+  exercises: Exercise[];
   message?: string;
 }
 
@@ -243,6 +243,7 @@ interface GenerateSummaryResponse {
   success: boolean;
 }
 
+// --- SUMMARY ---
 export const generateSummary = (params: GenerateSummaryRequest): Promise<GenerateSummaryResponse> => {
   return request<GenerateSummaryResponse>(`${API_URL}/summary`, {
     method: 'POST',
@@ -406,5 +407,3 @@ export const deleteWorkoutSession = (session_id: number): Promise<WorkoutSession
     body: JSON.stringify({ session_id }),
     successMessage: 'Session deleted',
   });
-
-// --- SUMMARY ---

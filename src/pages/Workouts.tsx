@@ -17,7 +17,16 @@ import {
   StatCard
 } from '../components/shared/SharedComponents';
 import styles from './Workouts.module.css';
-import { addExercisesToSession } from '../api';
+import { 
+  getWorkoutSessions, 
+  createWorkoutSession, 
+  addExercisesToSession,
+  markSessionCompleted,
+  deleteWorkoutSession,
+  getExercises
+} from '../api';
+
+import { Exercise } from '../api';
 
 interface Session {
   session_id: number;
@@ -46,14 +55,6 @@ interface SessionLog {
   exercise_id: number;
   name: string;
 }
-interface Exercise {
-  exercise_id: number;
-  name: string;
-  default_sets?: number;
-  default_reps?: number;
-  description?: string;
-}
-
 const sessionTypes = [
   'Push',
   'Pull',
@@ -131,9 +132,8 @@ const Workouts: React.FC = () => {
   const fetchSessions = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/workouts?user_id=${user?.user_id}`);
-      const data = await res.json();
-      setSessions(data);
+      const data = await getWorkoutSessions({ user_id: user?.user_id });
+      setSessions(Array.isArray(data) ? data : data.sessions || []);
     } catch (error) {
       console.error('Error fetching sessions:', error);
       setError('Failed to load workouts');
@@ -144,12 +144,9 @@ const Workouts: React.FC = () => {
   const openDetails = async (session: Session) => {
     setDetailsModal({ session, open: true });
     try {
-      const [detailsRes, logsRes] = await Promise.all([
-        fetch(`http://localhost:4000/api/workouts/${session.session_id}/details`),
-        fetch(`http://localhost:4000/api/workouts/${session.session_id}/logs`)
-      ]);
-      setSessionDetails(await detailsRes.json());
-      setSessionLogs(await logsRes.json());
+      const data = await getWorkoutSessions({ session_id: session.session_id });
+      setSessionDetails(data.details || []);
+      setSessionLogs(data.logs || []);
     } catch (error) {
       console.error('Error loading session details:', error);
       setError('Failed to load workout details');
@@ -160,17 +157,12 @@ const Workouts: React.FC = () => {
     e.preventDefault();
     setError('');
     try {
-      const response = await fetch('http://localhost:4000/api/workouts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          user_id: user?.user_id, 
-          scheduled_date: formDate, 
-          notes: formNotes, 
-          type: formType 
-        })
+      const data = await createWorkoutSession({ 
+        user_id: user!.user_id, 
+        scheduled_date: formDate, 
+        notes: formNotes, 
+        type: formType 
       });
-      const data = await response.json();
       
       if (data.session_id) {
         setShowForm(false);
@@ -179,18 +171,30 @@ const Workouts: React.FC = () => {
         setFormType(sessionTypes[0]);
         fetchSessions();
         triggerRefresh();
-      } else {
-        setError(data.message || 'Failed to schedule session');
       }
     } catch (error) {
       console.error('Error scheduling session:', error);
-      setError('Failed to schedule session. Please try again.');
+      // Error notification is handled by the API request function
     }
   };
 
   const handleDeleteExercise = async (detailId: number) => {
     try {
-      await fetch(`http://localhost:4000/api/workouts/details/${detailId}`, { method: 'DELETE' });
+      // Note: The API doesn't have a delete exercise from session endpoint in index.ts
+      // You'll need to add this to your API or use a direct fetch call
+      const API_URL = 'https://train-diary-backend.vercel.app/aSpi';
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${API_URL}/workout-sessions/details/${detailId}`, { 
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete exercise');
+      
       setDeleteExerciseConfirm(null);
       if (detailsModal?.session) {
         openDetails(detailsModal.session);
@@ -203,13 +207,12 @@ const Workouts: React.FC = () => {
 
   const handleDeleteSession = async (sessionId: number) => {
     try {
-      await fetch(`http://localhost:4000/api/workouts/${sessionId}`, { method: 'DELETE' });
+      await deleteWorkoutSession(sessionId);
       setDeleteSessionConfirm(null);
       fetchSessions();
       triggerRefresh();
     } catch (error) {
       console.error('Error deleting session:', error);
-      setError('Failed to delete session');
     }
   };
 
@@ -226,9 +229,16 @@ const Workouts: React.FC = () => {
     setSessions(reorderedSessions);
 
     try {
-      await fetch('http://localhost:4000/api/workouts/reorder', {
+      // Note: Reorder endpoint not in index.ts - keeping direct fetch
+      const API_URL = 'https://train-diary-backend.vercel.app/aSpi';
+      const token = localStorage.getItem('token');
+      
+      await fetch(`${API_URL}/workout-sessions/reorder`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           session_id: parseInt(result.draggableId),
           new_position: destIndex
@@ -275,8 +285,8 @@ const Workouts: React.FC = () => {
 
   const fetchAllExercises = async () => {
     try {
-      const res = await fetch('http://localhost:4000/api/exercises');
-      setAllExercises(await res.json());
+      const data = await getExercises();
+      setAllExercises(data.exercises);
     } catch (error) {
       console.error('Error fetching exercises:', error);
       setError('Failed to load exercises');
@@ -294,24 +304,24 @@ const Workouts: React.FC = () => {
     try {
       const detail = sessionDetails.find(d => d.exercise_id === logExerciseId);
       if (!detail) return;
-      await fetch('http://localhost:4000/api/workouts/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_detail_id: detail.session_detail_id,
+      
+      await createWorkoutSession({
+        session_detail_id: detail.session_detail_id,
+        log: {
           actual_sets: parseInt(logForm.actual_sets),
           actual_reps: parseInt(logForm.actual_reps),
           weight_kg: parseFloat(logForm.weight_kg) || 0,
           duration_seconds: 0,
           notes: logForm.notes || ''
-        })
+        }
       });
+      
       setShowLogModal(false);
       setLogExerciseId(null);
       setLogForm({ actual_sets: '', actual_reps: '', weight_kg: '', notes: '' });
       if (detailsModal?.session) openDetails(detailsModal.session);
     } catch (e) {
-      alert('Failed to log set');
+      console.error('Failed to log set:', e);
     }
   };
 
@@ -319,12 +329,12 @@ const Workouts: React.FC = () => {
     if (!detailsModal?.session) return;
     setCompletingSession(true);
     try {
-      await fetch(`http://localhost:4000/api/workouts/${detailsModal.session.session_id}/complete`, { method: 'PATCH' });
+      await markSessionCompleted(detailsModal.session.session_id);
       setDetailsModal(null);
       fetchSessions();
       triggerRefresh();
     } catch (e) {
-      alert('Failed to complete session');
+      console.error('Failed to complete session:', e);
     }
     setCompletingSession(false);
   };
@@ -351,17 +361,30 @@ const Workouts: React.FC = () => {
       setAddExerciseForm({ exercise_id: '', planned_sets: '', planned_reps: '' });
       openDetails(detailsModal.session);
     } catch (e) {
-      setError('Failed to add exercise.');
+      console.error('Failed to add exercise:', e);
     }
     setAddExerciseLoading(false);
   };
 
   const handleDeleteLog = async (logId: number) => {
     try {
-      await fetch(`http://localhost:4000/api/workouts/log/${logId}`, { method: 'DELETE' });
+      // Note: Delete log endpoint not in index.ts - keeping direct fetch
+      const API_URL = 'https://train-diary-backend.vercel.app/aSpi';
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${API_URL}/workout-sessions/log/${logId}`, { 
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete log');
+      
       if (detailsModal?.session) openDetails(detailsModal.session);
     } catch (e) {
-      alert('Failed to delete log');
+      console.error('Failed to delete log:', e);
     }
   };
 
