@@ -182,7 +182,7 @@ const Workouts: React.FC = () => {
     try {
       // Note: The API doesn't have a delete exercise from session endpoint in index.ts
       // You'll need to add this to your API or use a direct fetch call
-      const API_URL = 'https://train-diary-backend.vercel.app/aSpi';
+      const API_URL = 'https://train-diary-backend.vercel.app/api';
       const token = localStorage.getItem('token');
       
       const response = await fetch(`${API_URL}/workout-sessions/details/${detailId}`, { 
@@ -286,7 +286,8 @@ const Workouts: React.FC = () => {
   const fetchAllExercises = async () => {
     try {
       const data = await getExercises();
-      setAllExercises(data.exercises);
+      setAllExercises(Array.isArray(data)? data : []);
+      console.log('Fetched exercises:', data);
     } catch (error) {
       console.error('Error fetching exercises:', error);
       setError('Failed to load exercises');
@@ -369,7 +370,7 @@ const Workouts: React.FC = () => {
   const handleDeleteLog = async (logId: number) => {
     try {
       // Note: Delete log endpoint not in index.ts - keeping direct fetch
-      const API_URL = 'https://train-diary-backend.vercel.app/aSpi';
+      const API_URL = 'https://train-diary-backend.vercel.app/api';
       const token = localStorage.getItem('token');
       
       const response = await fetch(`${API_URL}/workout-sessions/log/${logId}`, { 
