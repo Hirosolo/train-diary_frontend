@@ -54,7 +54,7 @@ interface SessionDetail {
   exercise_id: number;
   planned_sets: number;
   planned_reps: number;
-  exercises?:{
+  exercises?: {
     name: string;
     category: string;
     description: string;
@@ -180,7 +180,7 @@ const Workouts: React.FC = () => {
     setDetailsModal({ session, open: true });
     try {
       const data = await getWorkoutSessions({ session_id: session.session_id });
-      setSessionDetails(Array.isArray(data) ? data : []);
+      setSessionDetails(data.details || []);
       setSessionLogs(data.logs || []);
     } catch (error) {
       console.error("Error loading session details:", error);
@@ -717,7 +717,8 @@ const Workouts: React.FC = () => {
                       {(detail.exercises?.description ||
                         detail.exercises?.description) && (
                         <div className={styles.exerciseDescription}>
-                          {detail.exercises?.description || detail.exercises?.description}
+                          {detail.exercises?.description ||
+                            detail.exercises?.description}
                         </div>
                       )}
                     </div>
