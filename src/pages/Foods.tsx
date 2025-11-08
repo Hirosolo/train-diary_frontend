@@ -14,7 +14,7 @@ import {
 } from "../components/shared/SharedComponents";
 import styles from "./Foods.module.css";
 
-const API_URL = "https://train-diary-backend.vercel.app/api";
+import { API_URL } from "../api";
 
 interface Meal {
   meal_id: number;
@@ -97,12 +97,16 @@ const Foods: React.FC = () => {
   const fetchMeals = async () => {
     setLoading(true);
     try {
-      const mealsRes = await fetch(`${API_URL}/food-logs?user_id=${user?.user_id}`);
+      const mealsRes = await fetch(
+        `${API_URL}/food-logs?user_id=${user?.user_id}`
+      );
       const mealsData = await mealsRes.json();
 
       const mealsWithFoods = await Promise.all(
         mealsData.map(async (meal: Meal) => {
-          const foodsRes = await fetch(`${API_URL}/food-logs?meal_id=${meal.meal_id}`);
+          const foodsRes = await fetch(
+            `${API_URL}/food-logs?meal_id=${meal.meal_id}`
+          );
           const foodsData = await foodsRes.json();
 
           const flattenedFoods =
@@ -128,11 +132,18 @@ const Foods: React.FC = () => {
 
   const fetchFoods = async () => {
     try {
-      const res = await fetch(`${API_URL}/food-logs`);
+      const res = await fetch(`${API_URL}/foods`);
+      if (!res.ok) {
+        console.error("Failed to fetch foods:", await res.text());
+        setFoods([]);
+        return;
+      }
+
       const data = await res.json();
-      setFoods(data);
+      setFoods(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching foods:", err);
+      setFoods([]);
     }
   };
 
@@ -151,7 +162,10 @@ const Foods: React.FC = () => {
 
   const handleAddFoodToMeal = () => {
     if (selectedFood && amountGrams) {
-      setMealFoods([...mealFoods, { food: selectedFood, amount_grams: amountGrams }]);
+      setMealFoods([
+        ...mealFoods,
+        { food: selectedFood, amount_grams: amountGrams },
+      ]);
       setShowFoodModal(false);
       setSelectedFood(null);
       setAmountGrams("");
@@ -306,10 +320,26 @@ const Foods: React.FC = () => {
       </div>
 
       <CardGrid className={styles.statsGrid}>
-        <StatCard value={dailyTotals.calories.toFixed(0)} label="Total Calories" icon={<FaFire />} />
-        <StatCard value={`${dailyTotals.protein.toFixed(1)}g`} label="Protein" icon={<FaDumbbell />} />
-        <StatCard value={`${dailyTotals.carbs.toFixed(1)}g`} label="Carbs" icon={<FaUtensils />} />
-        <StatCard value={`${dailyTotals.fat.toFixed(1)}g`} label="Fat" icon={<FaLeaf />} />
+        <StatCard
+          value={dailyTotals.calories.toFixed(0)}
+          label="Total Calories"
+          icon={<FaFire />}
+        />
+        <StatCard
+          value={`${dailyTotals.protein.toFixed(1)}g`}
+          label="Protein"
+          icon={<FaDumbbell />}
+        />
+        <StatCard
+          value={`${dailyTotals.carbs.toFixed(1)}g`}
+          label="Carbs"
+          icon={<FaUtensils />}
+        />
+        <StatCard
+          value={`${dailyTotals.fat.toFixed(1)}g`}
+          label="Fat"
+          icon={<FaLeaf />}
+        />
       </CardGrid>
 
       <CardGrid>
@@ -330,7 +360,8 @@ const Foods: React.FC = () => {
               <div className={styles.mealHeader}>
                 <div>
                   <h3 className={styles.mealType}>
-                    {meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1)}
+                    {meal.meal_type.charAt(0).toUpperCase() +
+                      meal.meal_type.slice(1)}
                   </h3>
                   <p className={styles.mealDate}>{formatDate(meal.log_date)}</p>
                 </div>
@@ -339,7 +370,9 @@ const Foods: React.FC = () => {
                     className={styles.detailsBtn}
                     onClick={() => handleExpandMeal(meal.meal_id)}
                   >
-                    {expandedMeal === meal.meal_id ? "Hide Details" : "Show Details"}
+                    {expandedMeal === meal.meal_id
+                      ? "Hide Details"
+                      : "Show Details"}
                   </button>
                   <button
                     className={styles.deleteBtn}
@@ -356,14 +389,24 @@ const Foods: React.FC = () => {
                     <div key={idx} className={styles.foodItem}>
                       <div className={styles.foodInfo}>
                         <span className={styles.foodName}>{food.name}</span>
-                        <span className={styles.foodAmount}>{food.amount_grams}g</span>
+                        <span className={styles.foodAmount}>
+                          {food.amount_grams}g
+                        </span>
                       </div>
                       <div className={styles.foodNutrition}>
                         <span>
-                          {(food.calories_per_serving * food.amount_grams / 100).toFixed(0)} cal
+                          {(
+                            (food.calories_per_serving * food.amount_grams) /
+                            100
+                          ).toFixed(0)}{" "}
+                          cal
                         </span>
                         <span>
-                          {(food.protein_per_serving * food.amount_grams / 100).toFixed(1)}g protein
+                          {(
+                            (food.protein_per_serving * food.amount_grams) /
+                            100
+                          ).toFixed(1)}
+                          g protein
                         </span>
                       </div>
                     </div>
@@ -393,7 +436,9 @@ const Foods: React.FC = () => {
               <label>Meal Type</label>
               <select
                 value={form.meal_type}
-                onChange={(e) => setForm({ ...form, meal_type: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, meal_type: e.target.value })
+                }
                 required
               >
                 <option value="breakfast">Breakfast</option>
@@ -411,13 +456,19 @@ const Foods: React.FC = () => {
                   <button
                     type="button"
                     className="btn-icon-danger"
-                    onClick={() => setMealFoods((foods) => foods.filter((_, i) => i !== idx))}
+                    onClick={() =>
+                      setMealFoods((foods) => foods.filter((_, i) => i !== idx))
+                    }
                   >
                     Remove
                   </button>
                 </div>
               ))}
-              <button type="button" className={styles.addFoodBtn} onClick={handleAddFood}>
+              <button
+                type="button"
+                className={styles.addFoodBtn}
+                onClick={handleAddFood}
+              >
                 <HiPlusSm /> Add Food
               </button>
             </div>
@@ -425,8 +476,14 @@ const Foods: React.FC = () => {
             {error && <div className={styles.error}>{error}</div>}
 
             <div className={styles.modalActions}>
-              <button type="submit" className="btn-primary">Save Meal</button>
-              <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
+              <button type="submit" className="btn-primary">
+                Save Meal
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowForm(false)}
+              >
                 Cancel
               </button>
             </div>
@@ -449,19 +506,24 @@ const Foods: React.FC = () => {
 
           <div className={styles.foodsGrid}>
             {foods
-              .filter((food) => food.name.toLowerCase().includes(foodSearch.toLowerCase()))
+              .filter((food) =>
+                food.name.toLowerCase().includes(foodSearch.toLowerCase())
+              )
               .map((food) => (
                 <div
                   key={food.food_id}
                   className={`${styles.foodOption} ${
-                    selectedFood?.food_id === food.food_id ? styles.selected : ""
+                    selectedFood?.food_id === food.food_id
+                      ? styles.selected
+                      : ""
                   }`}
                   onClick={() => handleSelectFood(food)}
                 >
                   <div className={styles.foodOptionInfo}>
                     <span className={styles.foodName}>{food.name}</span>
                     <span className={styles.foodNutrition}>
-                      {food.calories_per_serving} cal | {food.protein_per_serving}g protein
+                      {food.calories_per_serving} cal |{" "}
+                      {food.protein_per_serving}g protein
                     </span>
                   </div>
                 </div>
@@ -469,7 +531,10 @@ const Foods: React.FC = () => {
           </div>
 
           {selectedFood && (
-            <div className={styles.formGroup} style={{ maxWidth: "none", margin: "1rem 0" }}>
+            <div
+              className={styles.formGroup}
+              style={{ maxWidth: "none", margin: "1rem 0" }}
+            >
               <label>Amount ({selectedFood.serving_type})</label>
               <input
                 type="number"
@@ -481,7 +546,14 @@ const Foods: React.FC = () => {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginTop: "1rem" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "1rem",
+              alignItems: "center",
+              marginTop: "1rem",
+            }}
+          >
             <button
               className={styles.addFoodToMealBtn}
               onClick={handleAddFoodToMeal}
@@ -507,8 +579,15 @@ const Foods: React.FC = () => {
           <div className={styles.deleteConfirm}>
             <p>Are you sure you want to delete this meal?</p>
             <div className={styles.modalActions}>
-              <button className="btn-danger" onClick={confirmDeleteMeal}>Delete</button>
-              <button className="btn-secondary" onClick={() => setDeleteMealId(null)}>Cancel</button>
+              <button className="btn-danger" onClick={confirmDeleteMeal}>
+                Delete
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => setDeleteMealId(null)}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </ModalContent>

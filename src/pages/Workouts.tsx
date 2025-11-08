@@ -38,6 +38,7 @@ import {
   markSessionCompleted,
   deleteWorkoutSession,
   getExercises,
+  API_URL,
 } from "../api";
 
 import { Exercise } from "../api";
@@ -217,7 +218,6 @@ const Workouts: React.FC = () => {
     try {
       // Note: The API doesn't have a delete exercise from session endpoint in index.ts
       // You'll need to add this to your API or use a direct fetch call
-      const API_URL = "https://train-diary-backend.vercel.app/api";
       const token = localStorage.getItem("token");
 
       const response = await fetch(
@@ -268,7 +268,6 @@ const Workouts: React.FC = () => {
 
     try {
       // Note: Reorder endpoint not in index.ts - keeping direct fetch
-      const API_URL = "https://train-diary-backend.vercel.app/api";
       const token = localStorage.getItem("token");
 
       await fetch(`${API_URL}/workout-sessions/reorder`, {
@@ -439,8 +438,6 @@ const Workouts: React.FC = () => {
 
   const handleDeleteLog = async (logId: number) => {
     try {
-      // Note: Delete log endpoint not in index.ts - keeping direct fetch
-      const API_URL = "https://train-diary-backend.vercel.app/api";
       const token = localStorage.getItem("token");
 
       const response = await fetch(`${API_URL}/workout-sessions/log/${logId}`, {
