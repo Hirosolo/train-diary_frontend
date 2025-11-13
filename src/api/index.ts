@@ -1,4 +1,4 @@
-export const API_URL = "http://localhost:3000/api";
+export const API_URL = "https://train-diary-backend.vercel.app/api";
 import { notifyError, notifySuccess } from "../context/notify";
 
 let token: string | null = localStorage.getItem("token");
