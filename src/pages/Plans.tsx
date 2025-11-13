@@ -1,9 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { FaCalendarAlt, FaChartLine, FaDumbbell, FaUserFriends } from 'react-icons/fa';
-import Navbar from '../components/NavBar/NavBar';
-import { useAuth } from '../context/AuthContext';
-import * as api from '../api';
+import React, { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
+import {
+  FaCalendarAlt,
+  FaDumbbell,
+} from "react-icons/fa";
+import Navbar from "../components/NavBar/NavBar";
+import { useAuth } from "../context/AuthContext";
+import {
+  getWorkoutPlans,
+  getWorkoutPlanDetails,
+  applyWorkoutPlan,
+} from "../api";
 import {
   PageContainer,
   PageHeader,
@@ -11,9 +18,9 @@ import {
   Card,
   ModalContent,
   GridForm,
-  StatCard
-} from '../components/shared/SharedComponents';
-import styles from './Plans.module.css';
+  StatCard,
+} from "../components/shared/SharedComponents";
+import styles from "./Plans.module.css";
 
 interface Plan {
   plan_id: number;
@@ -28,18 +35,19 @@ const Plans: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showApply, setShowApply] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [startDate, setStartDate] = useState('');
-  const [error, setError] = useState('');
+  const [startDate, setStartDate] = useState("");
+  const [error, setError] = useState("");
   const [planStats, setPlanStats] = useState({
     totalPlans: 0,
     activePlans: 0,
     completedPlans: 0,
-    avgCompletion: 0
+    avgCompletion: 0,
   });
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailedPlan, setDetailedPlan] = useState<any>(null);
 
-  if (authLoading) return <div className="dashboard-container">Loading user...</div>;
+  if (authLoading)
+    return <div className="dashboard-container">Loading user...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
   useEffect(() => {
@@ -53,7 +61,7 @@ const Plans: React.FC = () => {
         totalPlans: plans.length,
         activePlans: 2,
         completedPlans: 5,
-        avgCompletion: 85
+        avgCompletion: 85,
       });
     }
   }, [plans]);
@@ -61,37 +69,45 @@ const Plans: React.FC = () => {
   const fetchPlans = async () => {
     setLoading(true);
     try {
-      const res = await api.listPlans();
-      setPlans(res);
+      const res = await getWorkoutPlans();
+      setPlans(
+        res.map((plan) => ({
+          ...plan,
+          duration_days: plan.duration_days ?? 0, // ensure number
+        }))
+      );
+      console.log("Fetched plans:", res);
     } catch (error) {
-      console.error('Error fetching plans:', error);
-      setError('Failed to load plans');
+      console.error("Error fetching plans:", error);
+      setError("Failed to load plans");
     }
     setLoading(false);
   };
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     if (!selectedPlan) return;
-    
+
     try {
-      const res = await api.applyPlan({ 
-        user_id: user?.user_id, 
-        plan_id: selectedPlan.plan_id, 
-        start_date: startDate 
-      });
-      
-      if (res.message === 'Plan applied and sessions created.') {
+      const res = await applyWorkoutPlan(
+        user.user_id,
+        selectedPlan.plan_id,
+        startDate
+      );
+
+      if (
+        res.message === "Plan applied successfully. Workout sessions created."
+      ) {
         setShowApply(false);
-        setStartDate('');
+        setStartDate("");
         setSelectedPlan(null);
       } else {
-        setError(res.message || 'Failed to apply plan');
+        setError(res.message || "Failed to apply plan");
       }
     } catch (error) {
-      console.error('Error applying plan:', error);
-      setError('Failed to apply plan. Please try again.');
+      console.error("Error applying plan:", error);
+      setError("Failed to apply plan. Please try again.");
     }
   };
 
@@ -99,11 +115,11 @@ const Plans: React.FC = () => {
     setDetailedPlan(null);
     setShowDetailsModal(true);
     try {
-      const res = await api.getPlanDetails(plan.plan_id);
+      const res = await getWorkoutPlanDetails(plan.plan_id);
       setDetailedPlan(res);
     } catch (error) {
-      console.error('Error fetching plan details:', error);
-      setError('Failed to load plan details');
+      console.error("Error fetching plan details:", error);
+      setError("Failed to load plan details");
     }
   };
 
@@ -117,7 +133,7 @@ const Plans: React.FC = () => {
 
         {/* Plan Stats */}
         <CardGrid className={styles.statsGrid}>
-          <StatCard 
+          <StatCard
             value={planStats.totalPlans}
             label="Available Plans"
             icon={<FaDumbbell />}
@@ -126,7 +142,14 @@ const Plans: React.FC = () => {
           {/* New Info Card */}
           <Card className={styles.infoCard}>
             <p>
-              Our workout plan system lets you follow structured training programs designed for different goals, like building strength, gaining muscle, or improving overall fitness. Each plan is made up of multiple training days (e.g., Chest Day, Leg Day), and each day includes specific exercises with recommended sets and reps. You can browse available plans, choose one that fits your goals, and apply it to your schedule. Once applied, the plan is added to your workout calendar, where you can track your progress day by day.
+              Our workout plan system lets you follow structured training
+              programs designed for different goals, like building strength,
+              gaining muscle, or improving overall fitness. Each plan is made up
+              of multiple training days (e.g., Chest Day, Leg Day), and each day
+              includes specific exercises with recommended sets and reps. You
+              can browse available plans, choose one that fits your goals, and
+              apply it to your schedule. Once applied, the plan is added to your
+              workout calendar, where you can track your progress day by day.
             </p>
           </Card>
         </CardGrid>
@@ -143,7 +166,7 @@ const Plans: React.FC = () => {
               <p>Please check back later for new plans!</p>
             </Card>
           ) : (
-            plans.map(plan => (
+            plans.map((plan) => (
               <Card key={plan.plan_id} className={styles.planCard}>
                 <div className={styles.planHeader}>
                   <h3 className={styles.planName}>{plan.name}</h3>
@@ -152,19 +175,17 @@ const Plans: React.FC = () => {
                     {plan.duration_days} days
                   </div>
                 </div>
-                
-                <div className={styles.planDescription}>
-                  {plan.description}
-                </div>
+
+                <div className={styles.planDescription}>{plan.description}</div>
 
                 <div className={styles.planActions}>
-                  <button 
+                  <button
                     className={styles.planDetailsBtn}
                     onClick={() => handleViewDetails(plan)}
                   >
                     Details
                   </button>
-                  <button 
+                  <button
                     className="btn-primary"
                     onClick={() => {
                       setSelectedPlan(plan);
@@ -181,13 +202,13 @@ const Plans: React.FC = () => {
 
         {/* Apply Plan Modal */}
         {showApply && selectedPlan && (
-          <ModalContent 
+          <ModalContent
             title={`Apply Plan: ${selectedPlan.name}`}
             onClose={() => {
               setShowApply(false);
               setSelectedPlan(null);
-              setStartDate('');
-              setError('');
+              setStartDate("");
+              setError("");
             }}
           >
             <GridForm onSubmit={handleApply}>
@@ -196,26 +217,30 @@ const Plans: React.FC = () => {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
                   required
                 />
               </div>
 
               {error && <div className={styles.error}>{error}</div>}
-              
+
               <div className={styles.modalActions}>
-                <button type="submit" className="btn-primary" disabled={!startDate}>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={!startDate}
+                >
                   Apply Plan
                 </button>
-                <button 
-                  type="button" 
-                  className="btn-secondary" 
+                <button
+                  type="button"
+                  className="btn-secondary"
                   onClick={() => {
                     setShowApply(false);
                     setSelectedPlan(null);
-                    setStartDate('');
-                    setError('');
+                    setStartDate("");
+                    setError("");
                   }}
                 >
                   Cancel
@@ -242,15 +267,24 @@ const Plans: React.FC = () => {
                 <p>{detailedPlan.duration_days} days</p>
 
                 <h4>Workout Days:</h4>
-                {detailedPlan.days?.length > 0 ? (
-                  detailedPlan.days.map((day: any) => (
-                    <div key={day.plan_day_id || day.day_number}> 
-                      <h5>Day {day.day_number}: {day.day_type && `(${day.day_type})`}</h5>
-                      {day.exercises?.length > 0 ? (
+                {detailedPlan.plan_days?.length > 0 ? (
+                  detailedPlan.plan_days.map((day: any) => (
+                    <div key={day.plan_day_id || day.day_number}>
+                      <h5>
+                        Day {day.day_number}:{" "}
+                        {day.day_type && `(${day.day_type})`}
+                      </h5>
+                      {day.plan_day_exercises?.length > 0 ? (
                         <ul>
-                          {day.exercises.map((exercise: any) => (
-                            <li key={exercise.plan_day_exercise_id || exercise.exercise_id}>
-                              {exercise.exercise_name} - Sets: {exercise.sets}, Reps: {exercise.reps}
+                          {day.plan_day_exercises.map((exercise: any) => (
+                            <li
+                              key={
+                                exercise.plan_day_exercise_id ||
+                                exercise.exercise_id
+                              }
+                            >
+                              {exercise.exercises?.name} — Sets: {exercise.sets}
+                              , Reps: {exercise.reps}
                             </li>
                           ))}
                         </ul>
