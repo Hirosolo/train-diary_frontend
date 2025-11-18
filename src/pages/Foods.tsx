@@ -298,26 +298,6 @@ const Foods: React.FC = () => {
   return (
     <PageContainer>
       <Navbar />
-      <div
-        style={{
-          marginTop: "2.5rem",
-          marginBottom: "1.5rem",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
-        <h2 className={styles.dashboardTitle} style={{ textAlign: "center" }}>
-          Food Log
-        </h2>
-        <button
-          className={styles.logMealBtn}
-          style={{ alignSelf: "center" }}
-          onClick={() => setShowForm(true)}
-        >
-          <HiPlusSm /> Log New Meal
-        </button>
-      </div>
 
       <CardGrid className={styles.statsGrid}>
         <StatCard
@@ -341,6 +321,24 @@ const Foods: React.FC = () => {
           icon={<FaLeaf />}
         />
       </CardGrid>
+
+      <div
+        style={{
+          marginTop: "2.5rem",
+          marginBottom: "1.5rem",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+        }}
+      >
+        <button
+          className={styles.logMealBtn}
+          style={{ alignSelf: "flex-end " }}
+          onClick={() => setShowForm(true)}
+        >
+          <HiPlusSm /> Log New Meal
+        </button>
+      </div>
 
       <CardGrid>
         {loading ? (

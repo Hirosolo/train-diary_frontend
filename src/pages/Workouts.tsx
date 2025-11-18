@@ -459,28 +459,8 @@ const Workouts: React.FC = () => {
   return (
     <PageContainer>
       <Navbar />
-      <div
-        style={{
-          marginTop: "2.5rem",
-          marginBottom: "1.5rem",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
-        <h2 className={styles.dashboardTitle} style={{ textAlign: "center" }}>
-          Workout Tracking
-        </h2>
-        <button
-          className={styles.scheduleBtn}
-          style={{ alignSelf: "center" }}
-          onClick={() => setShowForm(true)}
-        >
-          <HiPlusSm /> Schedule Workout
-        </button>
-      </div>
 
-      <CardGrid className={styles.statsGrid}>
+      <CardGrid className={styles.statsGrid} style={{marginTop: "5rem"}}>
         <StatCard
           value={workoutStats.totalWorkouts}
           label="Total Workouts"
@@ -506,6 +486,25 @@ const Workouts: React.FC = () => {
           className={styles.statCard}
         />
       </CardGrid>
+
+      <div
+        style={{
+          marginTop: "2.5rem",
+          marginBottom: "0.7rem",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+        }}
+      >
+
+        <button
+          className={styles.scheduleBtn}
+          style={{ alignSelf: "flex-end" }}
+          onClick={() => setShowForm(true)}
+        >
+          <HiPlusSm /> Schedule Workout
+        </button>
+      </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
         <StrictModeDroppable droppableId="sessions">

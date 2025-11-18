@@ -271,7 +271,7 @@ const Dashboard: React.FC = () => {
     <div className={styles['dashboard-bg']}>
       <Navbar />
       <PageContainer className={styles.dashboardContent}>
-        <PageHeader title="Dashboard"></PageHeader>
+
         
         <div className={styles['period-selector']}>
           <input

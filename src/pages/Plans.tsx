@@ -124,9 +124,6 @@ const Plans: React.FC = () => {
     <PageContainer>
       <Navbar />
       <div className={styles.plansContent}>
-        <PageHeader title="Workout Plans">
-          {/* Add a button here if needed */}
-        </PageHeader>
 
         {/* Plan Stats */}
         <CardGrid className={styles.statsGrid}>

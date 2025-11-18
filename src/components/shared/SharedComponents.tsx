@@ -33,7 +33,7 @@ interface StatCardProps {
 
 export const StatCard: React.FC<StatCardProps> = ({ value, label, icon, className = '' }) => (
   <div className={`${styles.statCard} ${className}`}>
-    {icon && <span className="stat-icon">{icon}</span>}
+    {icon && <span className="stat-icon" style={{paddingTop: "3rem"}}>{icon}</span>}
     <div className={styles.statValue}>{value}</div>
     <div className={styles.statLabel}>{label}</div>
   </div>
