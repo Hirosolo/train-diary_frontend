@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import {
-  FaCalendarAlt,
-  FaDumbbell,
-} from "react-icons/fa";
+import { FaCalendarAlt, FaDumbbell } from "react-icons/fa";
 import Navbar from "../components/NavBar/NavBar";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -191,6 +188,7 @@ const Plans: React.FC = () => {
                       setSelectedPlan(plan);
                       setShowApply(true);
                     }}
+                    style={{padding: "0.4rem 1.2rem"}}
                   >
                     Apply Plan
                   </button>
