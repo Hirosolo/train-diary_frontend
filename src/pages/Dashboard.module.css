@@ -181,6 +181,65 @@ input[type="month"].period-select::-webkit-calendar-picker-indicator {
   margin: 0 0 24px 0;
 }
 
+.graphTitleWithTooltip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.grScoreText {
+  display: inline;
+}
+
+.tooltipIcon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  color: #999;
+  font-size: 1rem;
+  transition: color 0.2s;
+}
+
+.tooltipIcon:hover {
+  color: #fff;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  padding: 12px 16px;
+  background: rgba(26, 26, 26, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 400;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  max-width: 500px;
+  white-space: normal;
+  line-height: 1.4;
+  pointer-events: none;
+  width: 300px;
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: rgba(26, 26, 26, 0.95);
+}
+
 .exercise-controls {
   display: flex;
   gap: 12px;

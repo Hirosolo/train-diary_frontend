@@ -17,7 +17,8 @@ import {
   FaAppleAlt,
   FaTrophy,
   FaArrowUp,
-  FaArrowDown
+  FaArrowDown,
+  FaQuestionCircle
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardRefresh } from '../context/DashboardRefreshContext';
@@ -76,6 +77,7 @@ const Dashboard: React.FC = () => {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [periodType, setPeriodType] = useState<string>(new Date().toISOString().slice(0, 7));
   const { subscribe } = useDashboardRefresh();
+  const [showGRTooltip, setShowGRTooltip] = useState(false);
 
   if (authLoading) return <div className="dashboard-container">Loading user...</div>;
   if (!user) return <Navigate to="/login" replace />;
@@ -309,7 +311,7 @@ const Dashboard: React.FC = () => {
 
             <div className={styles.graphContainer}>
               <div className={styles.graphSection}>
-                <h3>Daily Nutrition & Protein</h3>
+                <h3>Nutrition & Protein</h3>
                 {nutritionGraphData ? (
                   <Line data={nutritionGraphData} options={graphOptions} />
                 ) : (
@@ -318,7 +320,22 @@ const Dashboard: React.FC = () => {
               </div>
 
               <div className={styles.graphSection}>
-                <h3>Daily GR Score & Workouts</h3>
+                <h3 className={styles.graphTitleWithTooltip}>
+                  Workouts
+                  <span className={styles.grScoreText}>& GR Score</span>
+                  <span 
+                    className={styles.tooltipIcon}
+                    onMouseEnter={() => setShowGRTooltip(true)}
+                    onMouseLeave={() => setShowGRTooltip(false)}
+                  >
+                    <FaQuestionCircle />
+                    {showGRTooltip && (
+                      <span className={styles.tooltip}>
+                        GR Score (Grind Rating) recognize your effor in workout based on the intensity, volume, and the difficulty of that muscle.
+                      </span>
+                    )}
+                  </span>
+                </h3>
                 {workoutGraphData ? (
                   <Line data={workoutGraphData} options={graphOptions} />
                 ) : (
