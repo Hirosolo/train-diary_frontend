@@ -1,4 +1,5 @@
 import React from 'react';
+import {useState, useEffect} from 'react';
 import styles from './SharedStyles.module.css';
 
 interface PageContainerProps {
@@ -94,3 +95,16 @@ export const GridForm: React.FC<GridFormProps> = ({ children, onSubmit, classNam
     {children}
   </form>
 );
+
+export const LoadingDots = () => {
+  const [dots, setDots] = useState("");
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length < 3 ? prev + "." : ""));
+    }, 300);
+    return () => clearInterval(interval);
+  }, []);
+
+  return <span>Loading{dots}</span>;
+};

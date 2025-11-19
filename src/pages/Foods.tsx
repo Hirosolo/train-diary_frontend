@@ -11,6 +11,7 @@ import {
   ModalContent,
   GridForm,
   StatCard,
+  LoadingDots,
 } from "../components/shared/SharedComponents";
 import styles from "./Foods.module.css";
 
@@ -343,7 +344,7 @@ const Foods: React.FC = () => {
       <CardGrid>
         {loading ? (
           <Card className={styles.loadingCard}>
-            <div className={styles.loader}>Loading...</div>
+            <LoadingDots/>
           </Card>
         ) : meals.length === 0 ? (
           <Card className={styles.emptyCard}>
