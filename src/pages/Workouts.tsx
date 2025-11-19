@@ -6,7 +6,6 @@ import {
   DropResult,
   DroppableProvided,
   DraggableProvided,
-  Droppable,
 } from "@hello-pangea/dnd";
 import {
   FaDumbbell,
@@ -14,7 +13,6 @@ import {
   FaClock,
   FaTrophy,
   FaTimes,
-  FaGripVertical,
 } from "react-icons/fa";
 import { HiPlusSm } from "react-icons/hi";
 import Navbar from "../components/NavBar/NavBar";
@@ -23,7 +21,6 @@ import { useAuth } from "../context/AuthContext";
 import { useDashboardRefresh } from "../context/DashboardRefreshContext";
 import {
   PageContainer,
-  PageHeader,
   CardGrid,
   Card,
   ModalContent,
@@ -96,7 +93,7 @@ const sessionTypes = [
 ];
 
 const Workouts: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshAuthCache } = useAuth();
   const { triggerRefresh } = useDashboardRefresh();
 
   if (authLoading)
@@ -167,6 +164,7 @@ const Workouts: React.FC = () => {
 
   const fetchSessions = async () => {
     setLoading(true);
+    console.log("Refreshing workout sessions...");
     try {
       const data = await getWorkoutSessions({ user_id: user?.user_id });
       setSessions(Array.isArray(data) ? data : data.sessions || []);
@@ -175,6 +173,11 @@ const Workouts: React.FC = () => {
       setError("Failed to load workouts");
     }
     setLoading(false);
+  };
+
+  const handleRefreshSessions = async () => {
+    await fetchSessions();
+    refreshAuthCache("manual-refresh");
   };
 
   const openDetails = async (session: Session) => {
@@ -207,6 +210,7 @@ const Workouts: React.FC = () => {
         setFormType(sessionTypes[0]);
         fetchSessions();
         triggerRefresh();
+        refreshAuthCache("session-created");
       }
     } catch (error) {
       console.error("Error scheduling session:", error);
@@ -237,6 +241,7 @@ const Workouts: React.FC = () => {
       if (detailsModal?.session) {
         openDetails(detailsModal.session);
       }
+      refreshAuthCache("session-modified");
     } catch (error) {
       console.error("Error deleting exercise:", error);
       setError("Failed to delete exercise. Please try again.");
@@ -249,6 +254,7 @@ const Workouts: React.FC = () => {
       setDeleteSessionConfirm(null);
       fetchSessions();
       triggerRefresh();
+      refreshAuthCache("session-deleted");
     } catch (error) {
       console.error("Error deleting session:", error);
     }
@@ -281,6 +287,7 @@ const Workouts: React.FC = () => {
           new_position: destIndex,
         }),
       });
+      refreshAuthCache("session-modified");
     } catch (error) {
       console.error("Error reordering sessions:", error);
       fetchSessions();
@@ -369,6 +376,7 @@ const Workouts: React.FC = () => {
         notes: "",
       });
       if (detailsModal?.session) openDetails(detailsModal.session);
+      refreshAuthCache("session-modified");
     } catch (e) {
       console.error("Failed to log set:", e);
     }
@@ -382,6 +390,7 @@ const Workouts: React.FC = () => {
       setDetailsModal(null);
       fetchSessions();
       triggerRefresh();
+      refreshAuthCache("session-modified");
     } catch (e) {
       console.error("Failed to complete session:", e);
     }
@@ -430,6 +439,7 @@ const Workouts: React.FC = () => {
         planned_reps: "",
       });
       openDetails(detailsModal.session);
+      refreshAuthCache("session-modified");
     } catch (e) {
       console.error("Failed to add exercise:", e);
     }
@@ -451,6 +461,7 @@ const Workouts: React.FC = () => {
       if (!response.ok) throw new Error("Failed to delete log");
 
       if (detailsModal?.session) openDetails(detailsModal.session);
+      refreshAuthCache("session-modified");
     } catch (e) {
       console.error("Failed to delete log:", e);
     }
@@ -492,7 +503,7 @@ const Workouts: React.FC = () => {
           marginTop: "2.5rem",
           marginBottom: "0.7rem",
           display: "flex",
-          flexDirection: "column",
+          flexDirection: "row",
           alignItems: "flex-end",
         }}
       >
@@ -502,7 +513,15 @@ const Workouts: React.FC = () => {
           style={{ alignSelf: "flex-end" }}
           onClick={() => setShowForm(true)}
         >
-          <HiPlusSm /> Schedule Workout
+          Schedule a workout
+        </button>
+        <button
+          className={styles.scheduleBtn}
+          style={{ marginTop: "0.5rem", backgroundColor: "#4a5568", marginLeft: "1rem" }}
+          onClick={handleRefreshSessions}
+          disabled={loading}
+        >
+          Refresh Sessions
         </button>
       </div>
 

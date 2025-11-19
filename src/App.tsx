@@ -4,7 +4,7 @@ import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
-// import Dashboard, Workouts, Foods, Plans pages (to be created)
+// import Dashboard, Workouts, Foods, Plans pages 
 
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Workouts = React.lazy(() => import('./pages/Workouts'));

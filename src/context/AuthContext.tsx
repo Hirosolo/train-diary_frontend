@@ -1,5 +1,69 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 import * as api from '../api';
+
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const AUTH_CACHE_KEY = 'authCache';
+
+const getTodayStamp = () => new Date().toISOString().slice(0, 10);
+
+interface AuthCachePayload {
+  user: User;
+  token: string;
+  expiresAt: number;
+  lastActivityDate: string;
+}
+
+const persistAuthCache = (
+  user: User,
+  token: string,
+  overrides: Partial<Omit<AuthCachePayload, 'user' | 'token'>> = {}
+): AuthCachePayload => {
+  const payload: AuthCachePayload = {
+    user,
+    token,
+    expiresAt: overrides.expiresAt ?? Date.now() + CACHE_TTL_MS,
+    lastActivityDate: overrides.lastActivityDate ?? getTodayStamp(),
+  };
+  localStorage.setItem('token', token);
+  localStorage.setItem('user', JSON.stringify(user));
+  localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(payload));
+  api.setToken(token);
+  return payload;
+};
+
+const readCachedAuth = (): AuthCachePayload | null => {
+  const raw = localStorage.getItem(AUTH_CACHE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      parsed.user &&
+      typeof parsed.token === 'string' &&
+      typeof parsed.expiresAt === 'number'
+    ) {
+      return parsed as AuthCachePayload;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const migrateLegacyAuth = (): AuthCachePayload | null => {
+  const legacyToken = localStorage.getItem('token');
+  const legacyUser = localStorage.getItem('user');
+  if (!legacyToken || !legacyUser) return null;
+  try {
+    const parsedUser = JSON.parse(legacyUser);
+    if (parsedUser?.user_id) {
+      return persistAuthCache(parsedUser, legacyToken);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
 
 interface User {
   user_id: number;
@@ -14,6 +78,8 @@ interface AuthContextType {
   register: (username: string, email: string, password: string) => Promise<any>;
   logout: () => void;
   loading: boolean;
+  refreshAuthCache: (reason?: string) => void;
+  cacheExpiresAt: number | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,15 +88,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cacheMeta, setCacheMeta] = useState<AuthCachePayload | null>(null);
+
+  const clearAuthState = useCallback(() => {
+    setUser(null);
+    setTokenState(null);
+    setCacheMeta(null);
+    api.setToken('');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem(AUTH_CACHE_KEY);
+  }, []);
+
+  type LoginResult = Awaited<ReturnType<typeof api.login>> & { user?: User };
 
   const login = async (email: string, password: string) => {
-    const res = await api.login({ email, password });
-    if (res.token) {
+    const res: LoginResult = await api.login({ email, password });
+    if (res.token && res.user) {
       setUser(res.user);
       setTokenState(res.token);
-      api.setToken(res.token);
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('user', JSON.stringify(res.user));
+      const payload = persistAuthCache(res.user, res.token);
+      setCacheMeta(payload);
     }
     return res;
   };
@@ -40,44 +118,92 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    setUser(null);
-    setTokenState(null);
-    api.setToken('');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuthState();
   };
 
+  const refreshAuthCache = useCallback(
+    (_reason?: string) => {
+      if (!user || !token) return;
+      const payload = persistAuthCache(user, token);
+      setCacheMeta(payload);
+    },
+    [user, token]
+  );
+
   React.useEffect(() => {
-    const t = localStorage.getItem('token');
-    const u = localStorage.getItem('user');
-    if (t && u) {
-      try {
-        const parsedUser = typeof u === 'string' ? JSON.parse(u) : u;
-        if (parsedUser && parsedUser.user_id && parsedUser.email) {
-          setTokenState(t);
-          setUser(parsedUser);
-          api.setToken(t);
-        } else {
-          // fallback: clear invalid user
-          setUser(null);
-          setTokenState(null);
-          api.setToken('');
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-        }
-      } catch {
-        setUser(null);
-        setTokenState(null);
-        api.setToken('');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+    const hydrateAuth = () => {
+      let cached = readCachedAuth();
+      if (!cached) {
+        cached = migrateLegacyAuth();
       }
+
+      if (!cached) {
+        setLoading(false);
+        return;
+      }
+
+      if (!cached.expiresAt || cached.expiresAt <= Date.now()) {
+        clearAuthState();
+        setLoading(false);
+        return;
+      }
+
+      const today = getTodayStamp();
+      if (cached.lastActivityDate !== today || cached.expiresAt - Date.now() < CACHE_TTL_MS / 2) {
+        cached = persistAuthCache(cached.user, cached.token, {
+          lastActivityDate: today,
+          expiresAt: Date.now() + CACHE_TTL_MS,
+        });
+      }
+
+      setUser(cached.user);
+      setTokenState(cached.token);
+      setCacheMeta(cached);
+      api.setToken(cached.token);
+      setLoading(false);
+    };
+
+    hydrateAuth();
+  }, [clearAuthState]);
+
+  React.useEffect(() => {
+    if (!cacheMeta?.expiresAt) return;
+    const remaining = cacheMeta.expiresAt - Date.now();
+    if (remaining <= 0) {
+      clearAuthState();
+      return;
     }
-    setLoading(false);
-  }, []);
+    const timer = window.setTimeout(() => {
+      clearAuthState();
+    }, remaining);
+    return () => window.clearTimeout(timer);
+  }, [cacheMeta?.expiresAt, clearAuthState]);
+
+  React.useEffect(() => {
+    if (!user || !token) return;
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const delay = midnight.getTime() - now.getTime();
+    const timer = window.setTimeout(() => {
+      refreshAuthCache('midnight-refresh');
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [user, token, refreshAuthCache, cacheMeta?.lastActivityDate]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        register,
+        logout,
+        loading,
+        refreshAuthCache,
+        cacheExpiresAt: cacheMeta?.expiresAt ?? null,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Navigate } from 'react-router-dom';
-import { Line } from 'react-chartjs-2';
+import React, { useEffect, useState, useCallback } from "react";
+import { Navigate } from "react-router-dom";
+import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,7 +10,7 @@ import {
   Title,
   Tooltip,
   Legend,
-} from 'chart.js';
+} from "chart.js";
 import {
   FaDumbbell,
   FaFire,
@@ -18,22 +18,30 @@ import {
   FaTrophy,
   FaArrowUp,
   FaArrowDown,
-  FaQuestionCircle
-} from 'react-icons/fa';
-import { useAuth } from '../context/AuthContext';
-import { useDashboardRefresh } from '../context/DashboardRefreshContext';
-import { generateSummary, getSummary } from '../api';
-import Navbar from '../components/NavBar/NavBar';
+  FaQuestionCircle,
+} from "react-icons/fa";
+import { useAuth } from "../context/AuthContext";
+import { useDashboardRefresh } from "../context/DashboardRefreshContext";
+import { generateSummary, getSummary } from "../api";
+import Navbar from "../components/NavBar/NavBar";
 import {
   PageContainer,
   PageHeader,
   CardGrid,
   Card,
-  StatCard
-} from '../components/shared/SharedComponents';
-import styles from './Dashboard.module.css';
+  StatCard,
+} from "../components/shared/SharedComponents";
+import styles from "./Dashboard.module.css";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface DailyData {
   date: string;
@@ -75,11 +83,14 @@ const Dashboard: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [periodType, setPeriodType] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [periodType, setPeriodType] = useState<string>(
+    new Date().toISOString().slice(0, 7)
+  );
   const { subscribe } = useDashboardRefresh();
   const [showGRTooltip, setShowGRTooltip] = useState(false);
 
-  if (authLoading) return <div className="dashboard-container">Loading user...</div>;
+  if (authLoading)
+    return <div className="dashboard-container">Loading user...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
   // Function to fetch all required data
@@ -88,42 +99,42 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       const periodStart = `${periodType}-01`; // First day of selected month
-      
-      console.log('Dashboard: Starting data fetch for month:', periodType);
+
+      console.log("Dashboard: Starting data fetch for month:", periodType);
 
       // First generate a new summary to ensure data is fresh
-      console.log('Dashboard: Generating new summary...');
+      console.log("Dashboard: Generating new summary...");
       const generatedSummary = await generateSummary({
         user_id: user.user_id,
-        period_type: 'monthly',
-        period_start: periodStart
-      }).catch(error => {
-        console.error('Failed to generate summary:', error);
+        period_type: "monthly",
+        period_start: periodStart,
+      }).catch((error) => {
+        console.error("Failed to generate summary:", error);
         return null;
       });
 
-      console.log('Dashboard: Generated summary result:', generatedSummary);
+      console.log("Dashboard: Generated summary result:", generatedSummary);
 
       // Short delay to ensure summary is generated
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Fetch summary data
       const summaryData = await getSummary({
         user_id: user.user_id,
-        period_type: 'monthly',
-        period_start: periodStart
+        period_type: "monthly",
+        period_start: periodStart,
       }).catch((err) => {
-        console.error('Failed to fetch summary:', err);
+        console.error("Failed to fetch summary:", err);
         return null;
       });
 
       // Only update state if we have valid data
       if (summaryData) {
-        console.log('Dashboard: Updating summary state with:', summaryData);
+        console.log("Dashboard: Updating summary state with:", summaryData);
         setSummary(summaryData);
       }
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error("Failed to fetch data:", error);
     } finally {
       setLoading(false);
     }
@@ -132,16 +143,16 @@ const Dashboard: React.FC = () => {
   // Unified effect for data fetching and refresh subscription
   useEffect(() => {
     if (!user) return;
-    console.log('Dashboard: Setting up data fetching and refresh subscription');
-    
+    console.log("Dashboard: Setting up data fetching and refresh subscription");
+
     // Initial data fetch
     fetchData();
-    
+
     // Subscribe to refresh events
     const unsubscribe = subscribe(fetchData);
-    
+
     return () => {
-      console.log('Dashboard: Cleaning up refresh subscription');
+      console.log("Dashboard: Cleaning up refresh subscription");
       unsubscribe();
     };
   }, [user, subscribe, fetchData]);
@@ -150,66 +161,77 @@ const Dashboard: React.FC = () => {
   const graphOptions = {
     responsive: true,
     interaction: {
-      mode: 'index' as const,
+      mode: "index" as const,
       intersect: false,
     },
     scales: {
       y: {
         beginAtZero: true,
         grid: {
-          color: 'rgba(255,255,255,0.1)'
+          color: "rgba(255,255,255,0.1)",
         },
         ticks: {
-          color: '#999'
-        }
+          color: "#999",
+        },
       },
       x: {
         grid: {
-          color: 'rgba(255,255,255,0.1)'
+          color: "rgba(255,255,255,0.1)",
         },
         ticks: {
-          color: '#999'
-        }
-      }
+          color: "#999",
+        },
+      },
     },
     plugins: {
       legend: {
-        position: 'top' as const,
+        position: "top" as const,
         labels: {
-          color: '#fff',
-          font: { size: 12 }
-        }
-      }
-    }
+          color: "#fff",
+          font: { size: 12 },
+        },
+      },
+    },
   };
+
+  // Handle empty data cases
+  useEffect(() => {
+    if (!loading && summary?.dailyData?.length === 0) {
+      console.log(
+        "No daily data found, but not triggering refresh to avoid loops"
+      );
+    }
+  }, [loading, summary]);
 
   // Prepare nutrition graph data
   const nutritionGraphData = React.useMemo(() => {
     if (!summary?.dailyData?.length) return null;
 
     return {
-      labels: summary.dailyData.map(d => new Date(d.date).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      })),
+      labels: summary.dailyData.map((d) =>
+        new Date(d.date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
+      ),
       datasets: [
         {
-          label: 'Calories',
-          data: summary.dailyData.map(d => d.calories),
-          borderColor: 'rgb(255, 99, 132)',
-          backgroundColor: 'rgba(255, 99, 132, 0.5)',
-          yAxisID: 'y',
-          tension: 0.4
+          label: "Calories",
+          data: summary.dailyData.map((d) => d.calories),
+          borderColor: "rgb(255, 99, 132)",
+          backgroundColor: "rgba(255, 99, 132, 0.5)",
+          yAxisID: "y",
+          tension: 0.4,
         },
         {
-          label: 'Protein (g)',
-          data: summary.dailyData.map(d => d.protein),
-          borderColor: 'rgb(53, 162, 235)',
-          backgroundColor: 'rgba(53, 162, 235, 0.5)',
-          yAxisID: 'y1',
-          tension: 0.4
-        }
-      ]
+          label: "Protein (g)",
+          data: summary.dailyData.map((d) => d.protein),
+          borderColor: "rgb(53, 162, 235)",
+          backgroundColor: "rgba(53, 162, 235, 0.5)",
+          yAxisID: "y1",
+          tension: 0.4,
+        },
+      ],
     };
   }, [summary]);
 
@@ -218,38 +240,33 @@ const Dashboard: React.FC = () => {
     if (!summary?.dailyData?.length) return null;
 
     return {
-      labels: summary.dailyData.map(d => new Date(d.date).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      })),
+      labels: summary.dailyData.map((d) =>
+        new Date(d.date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
+      ),
       datasets: [
         {
-          label: 'GR Score',
-          data: summary.dailyData.map(d => d.gr_score),
-          borderColor: 'rgb(75, 192, 192)',
-          backgroundColor: 'rgba(75, 192, 192, 0.5)',
-          tension: 0.4
+          label: "GR Score",
+          data: summary.dailyData.map((d) => d.gr_score),
+          borderColor: "rgb(75, 192, 192)",
+          backgroundColor: "rgba(75, 192, 192, 0.5)",
+          tension: 0.4,
         },
         {
-          label: 'Workouts',
-          data: summary.dailyData.map(d => d.workouts),
-          borderColor: 'rgb(255, 159, 64)',
-          backgroundColor: 'rgba(255, 159, 64, 0.5)',
-          tension: 0.4
-        }
-      ]
+          label: "Workouts",
+          data: summary.dailyData.map((d) => d.workouts),
+          borderColor: "rgb(255, 159, 64)",
+          backgroundColor: "rgba(255, 159, 64, 0.5)",
+          tension: 0.4,
+        },
+      ],
     };
   }, [summary]);
-
-  // Handle empty data cases
-  useEffect(() => {
-    if (!loading && summary?.dailyData?.length === 0) {
-      console.log('No daily data found, but not triggering refresh to avoid loops');
-    }
-  }, [loading, summary]);
-
+  
   const formatNumber = (num: number): string => {
-    return num >= 1000 ? (num / 1000).toFixed(1) + 'k' : num.toString();
+    return num >= 1000 ? (num / 1000).toFixed(1) + "k" : num.toString();
   };
 
   const calculateChange = (current: number, previous: number): number => {
@@ -259,7 +276,7 @@ const Dashboard: React.FC = () => {
 
   const formatChange = (change: number): string => {
     if (change > 0) return `+${change.toFixed(1)}%`;
-    return change.toFixed(1) + '%';
+    return change.toFixed(1) + "%";
   };
 
   const getChangeIcon = (change: number) => {
@@ -268,22 +285,20 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className={styles['dashboard-bg']}>
+    <div className={styles["dashboard-bg"]}>
       <Navbar />
       <PageContainer className={styles.dashboardContent}>
-
-        
-        <div className={styles['period-selector']}>
+        <div className={styles["period-selector"]}>
           <input
             type="month"
-            className={styles['period-select']}
+            className={styles["period-select"]}
             value={periodType}
             onChange={(e) => setPeriodType(e.target.value)}
           />
         </div>
 
         {loading ? (
-          <div className={styles['loading-spinner']}>Loading summary...</div>
+          <div className={styles["loading-spinner"]}>Loading summary...</div>
         ) : summary ? (
           <>
             <div className={styles.summaryStats}>
@@ -315,7 +330,9 @@ const Dashboard: React.FC = () => {
                 {nutritionGraphData ? (
                   <Line data={nutritionGraphData} options={graphOptions} />
                 ) : (
-                  <div className={styles.emptyState}>No nutrition data available for this period.</div>
+                  <div className={styles.emptyState}>
+                    No nutrition data available for this period.
+                  </div>
                 )}
               </div>
 
@@ -323,7 +340,7 @@ const Dashboard: React.FC = () => {
                 <h3 className={styles.graphTitleWithTooltip}>
                   Workouts
                   <span className={styles.grScoreText}>& GR Score</span>
-                  <span 
+                  <span
                     className={styles.tooltipIcon}
                     onMouseEnter={() => setShowGRTooltip(true)}
                     onMouseLeave={() => setShowGRTooltip(false)}
@@ -331,7 +348,9 @@ const Dashboard: React.FC = () => {
                     <FaQuestionCircle />
                     {showGRTooltip && (
                       <span className={styles.tooltip}>
-                        GR Score (Grind Rating) recognize your effor in workout based on the intensity, volume, and the difficulty of that muscle.
+                        GR Score (Grind Rating) recognize your effor in workout
+                        based on the intensity, volume, and the difficulty of
+                        that muscle.
                       </span>
                     )}
                   </span>
@@ -339,13 +358,18 @@ const Dashboard: React.FC = () => {
                 {workoutGraphData ? (
                   <Line data={workoutGraphData} options={graphOptions} />
                 ) : (
-                  <div className={styles.emptyState}>No workout data available for this period.</div>
+                  <div className={styles.emptyState}>
+                    No workout data available for this period.
+                  </div>
                 )}
               </div>
             </div>
           </>
         ) : (
-          <div className={styles.emptyState}>No summary data available for this period. Generate data by adding workouts and foods.</div>
+          <div className={styles.emptyState}>
+            No summary data available for this period. Generate data by adding
+            workouts and foods.
+          </div>
         )}
       </PageContainer>
     </div>
