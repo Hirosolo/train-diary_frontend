@@ -516,8 +516,8 @@ const Workouts: React.FC = () => {
           Schedule a workout
         </button>
         <button
-          className={styles.scheduleBtn}
-          style={{ marginTop: "0.5rem", backgroundColor: "#4a5568", marginLeft: "1rem" }}
+          className={styles.refreshBtn}
+          style={{ marginTop: "0.5rem", marginLeft: "1rem" }}
           onClick={handleRefreshSessions}
           disabled={loading}
         >

@@ -410,7 +410,7 @@
 }
 
 .logMealBtn:hover {
-  background-color: var(--accent-color-darker);
+  background-color: #b71c1c;
 }
 
 .addFoodToMealBtn {
@@ -419,7 +419,7 @@
 }
 
 .addFoodToMealBtn:hover {
-  background-color: var(--accent-color-darker);
+  background-color: #b71c1c;
 }
 
 .cancelBtn {

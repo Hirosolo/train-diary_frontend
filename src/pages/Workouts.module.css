@@ -275,7 +275,23 @@
   transition: background 0.2s;
 }
 .scheduleBtn:hover {
-  background: #ff5252;
+  background-color: #b71c1c;
+}
+
+.refreshBtn {
+  margin-bottom: 2.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 2rem;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  background: #4a5568;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.refreshBtn:hover{
+  background-color: #6e7f9d;
 }
 
 .sessionStatus {

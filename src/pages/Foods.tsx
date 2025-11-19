@@ -15,7 +15,7 @@ import {
 } from "../components/shared/SharedComponents";
 import styles from "./Foods.module.css";
 
-import { API_URL } from "../api";
+import { API_URL, addFoodLog, deleteFoodLog } from "../api";
 
 interface Meal {
   meal_id: number;
@@ -47,12 +47,60 @@ interface MealWithFoods extends Meal {
   foods: MealFood[];
 }
 
+const MEAL_CACHE_KEY = "mealCache";
+const MEAL_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
+const getDayStamp = () => new Date().toISOString().slice(0, 10);
+
+interface MealsCachePayload {
+  meals: MealWithFoods[];
+  fetchedAt: number;
+  dayStamp: string;
+}
+
+const readMealsCache = (): MealsCachePayload | null => {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(MEAL_CACHE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed?.meals)) {
+      return parsed as MealsCachePayload;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const persistMealsCache = (meals: MealWithFoods[]): MealsCachePayload => {
+  const payload: MealsCachePayload = {
+    meals,
+    fetchedAt: Date.now(),
+    dayStamp: getDayStamp(),
+  };
+  if (typeof window !== "undefined") {
+    localStorage.setItem(MEAL_CACHE_KEY, JSON.stringify(payload));
+  }
+  return payload;
+};
+
+const shouldRefreshMeals = (cache: MealsCachePayload | null) => {
+  if (!cache) return true;
+  if (cache.dayStamp !== getDayStamp()) return true;
+  return Date.now() - cache.fetchedAt >= MEAL_CACHE_TTL;
+};
+
 const Foods: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshAuthCache } = useAuth();
   const { triggerRefresh } = useDashboardRefresh();
 
-  const [meals, setMeals] = useState<MealWithFoods[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [mealsCache, setMealsCache] = useState<MealsCachePayload | null>(
+    () => readMealsCache()
+  );
+  const [meals, setMeals] = useState<MealWithFoods[]>(
+    () => mealsCache?.meals || []
+  );
+  const [loading, setLoading] = useState(() => !mealsCache);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ log_date: "", meal_type: "breakfast" });
   const [mealFoods, setMealFoods] = useState<
@@ -95,11 +143,22 @@ const Foods: React.FC = () => {
     }
   }, [meals]);
 
-  const fetchMeals = async () => {
+  const fetchMeals = async (force = false) => {
+    if (!user?.user_id) return;
+
+    const needsRefresh = force || shouldRefreshMeals(mealsCache);
+
+    if (!needsRefresh && mealsCache) {
+      setMeals(mealsCache.meals);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    console.log("Refreshing meal logs...");
     try {
       const mealsRes = await fetch(
-        `${API_URL}/food-logs?user_id=${user?.user_id}`
+        `${API_URL}/food-logs?user_id=${user.user_id}`
       );
       const mealsData = await mealsRes.json();
 
@@ -125,10 +184,17 @@ const Foods: React.FC = () => {
       );
 
       setMeals(mealsWithFoods);
+      const payload = persistMealsCache(mealsWithFoods);
+      setMealsCache(payload);
     } catch (error) {
       console.error("Error fetching meals:", error);
     }
     setLoading(false);
+  };
+
+  const handleRefreshMeals = async () => {
+    await fetchMeals(true);
+    refreshAuthCache("meals-manual-refresh");
   };
 
   const fetchFoods = async () => {
@@ -184,32 +250,23 @@ const Foods: React.FC = () => {
 
     const foodsPayload = mealFoods.map((f) => ({
       food_id: f.food.food_id,
-      amount_grams: f.amount_grams,
+      amount_grams: parseFloat(f.amount_grams),
     }));
 
     try {
-      const res = await fetch(`${API_URL}/food-logs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user?.user_id,
-          meal_type: form.meal_type,
-          log_date: form.log_date,
-          foods: foodsPayload,
-        }),
+      await addFoodLog({
+        user_id: user?.user_id,
+        meal_type: form.meal_type,
+        log_date: form.log_date,
+        foods: foodsPayload,
       });
 
-      const data = await res.json();
-
-      if (data.data?.meal_id) {
-        await fetchMeals();
-        triggerRefresh();
-        setForm({ log_date: "", meal_type: "breakfast" });
-        setMealFoods([]);
-        setShowForm(false);
-      } else {
-        setError(data.message || "Failed to log meal.");
-      }
+      await fetchMeals(true);
+      triggerRefresh();
+      refreshAuthCache("meal-logged");
+      setForm({ log_date: "", meal_type: "breakfast" });
+      setMealFoods([]);
+      setShowForm(false);
     } catch (err) {
       console.error("Error logging meal:", err);
       setError("Failed to log meal. Please try again.");
@@ -247,21 +304,12 @@ const Foods: React.FC = () => {
   const confirmDeleteMeal = async () => {
     if (deleteMealId) {
       try {
-        const res = await fetch(`${API_URL}/food-logs`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ meal_id: deleteMealId }),
-        });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error("Failed to delete meal:", errText);
-          return;
-        }
+        await deleteFoodLog(deleteMealId);
 
         setDeleteMealId(null);
-        await fetchMeals();
+        await fetchMeals(true);
         triggerRefresh();
+        refreshAuthCache("meal-deleted");
       } catch (err) {
         console.error("Error deleting meal:", err);
       }
@@ -332,13 +380,23 @@ const Foods: React.FC = () => {
           alignItems: "flex-end",
         }}
       >
-        <button
-          className={styles.logMealBtn}
-          style={{ alignSelf: "flex-end " }}
-          onClick={() => setShowForm(true)}
-        >
-          <HiPlusSm /> Log New Meal
-        </button>
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <button
+            className={styles.logMealBtn}
+            style={{ alignSelf: "flex-end " }}
+            onClick={() => setShowForm(true)}
+          >
+            Log New Meal
+          </button>
+          <button
+            className={styles.refreshBtn ? styles.refreshBtn : styles.logMealBtn}
+            style={{ alignSelf: "flex-end ", backgroundColor: "#4a5568" }}
+            onClick={handleRefreshMeals}
+            disabled={loading}
+          >
+            Refresh Meals
+          </button>
+        </div>
       </div>
 
       <CardGrid>
