@@ -11,6 +11,12 @@ export const DashboardRefreshProvider: React.FC<{ children: React.ReactNode }> =
   const listeners = useRef<Set<() => void>>(new Set());
 
   const triggerRefresh = () => {
+    // Persist a flag so components mounted later know a refresh was requested
+    try {
+      localStorage.setItem('dashboard_needs_refresh', '1');
+    } catch (e) {
+      // ignore
+    }
     listeners.current.forEach(cb => cb());
   };
 

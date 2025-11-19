@@ -79,6 +79,21 @@ input[type="month"].period-select::-webkit-calendar-picker-indicator {
   border-color: rgba(255,255,255,0.2);
 }
 
+.refreshBtn {
+  margin-left: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  background: #4a5568;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.refreshBtn:hover {
+  background-color: #6e7f9d;
+}
+
 .dashboard-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

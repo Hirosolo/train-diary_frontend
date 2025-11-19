@@ -8,12 +8,12 @@ import { AuthProvider } from './context/AuthContext';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AuthProvider>
-      <DashboardRefreshProvider>
+    <DashboardRefreshProvider>
+      <AuthProvider>
         <NotificationProvider>
           <App />
         </NotificationProvider>
-      </DashboardRefreshProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </DashboardRefreshProvider>
   </React.StrictMode>,
 );

@@ -80,7 +80,7 @@ interface ChartData {
 }
 
 const Dashboard: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshAuthCache } = useAuth();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [periodType, setPeriodType] = useState<string>(
@@ -89,56 +89,126 @@ const Dashboard: React.FC = () => {
   const { subscribe } = useDashboardRefresh();
   const [showGRTooltip, setShowGRTooltip] = useState(false);
 
+  const SUMMARY_CACHE_KEY = 'summaryCache_v1';
+  const SUMMARY_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+  const getDayStamp = () => new Date().toISOString().slice(0, 10);
+
+  interface SummaryCachePayload {
+    summary: Summary;
+    fetchedAt: number;
+    dayStamp: string;
+    userId: number;
+    periodStart: string;
+  }
+
+  const readSummaryCache = (): SummaryCachePayload | null => {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(SUMMARY_CACHE_KEY);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.summary && typeof parsed.fetchedAt === 'number') {
+        return parsed as SummaryCachePayload;
+      }
+    } catch (e) {
+      return null;
+    }
+    return null;
+  };
+
+  const persistSummaryCache = (
+    summaryData: Summary,
+    userId: number,
+    periodStart: string
+  ): SummaryCachePayload => {
+    const payload: SummaryCachePayload = {
+      summary: summaryData,
+      fetchedAt: Date.now(),
+      dayStamp: getDayStamp(),
+      userId,
+      periodStart,
+    };
+    try {
+      localStorage.setItem(SUMMARY_CACHE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      // ignore quota errors
+    }
+    return payload;
+  };
+
+  const shouldRefreshSummary = (
+    cache: SummaryCachePayload | null,
+    userId: number,
+    periodStart: string
+  ) => {
+    if (!cache) return true;
+    if (cache.userId !== userId) return true;
+    if (cache.periodStart !== periodStart) return true;
+    if (cache.dayStamp !== getDayStamp()) return true; // new day
+    return Date.now() - cache.fetchedAt >= SUMMARY_CACHE_TTL;
+  };
+
   if (authLoading)
     return <div className="dashboard-container">Loading user...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
   // Function to fetch all required data
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    try {
-      setLoading(true);
-      const periodStart = `${periodType}-01`; // First day of selected month
+  const fetchData = useCallback(
+    async (force = false) => {
+      if (!user) return;
+      try {
+        setLoading(true);
+        const periodStart = `${periodType}-01`; // First day of selected month
 
-      console.log("Dashboard: Starting data fetch for month:", periodType);
+        const cached = readSummaryCache();
+        const dirtyFlag = typeof window !== 'undefined' && !!localStorage.getItem('dashboard_needs_refresh');
+        if (dirtyFlag) {
+          try {
+            localStorage.removeItem('dashboard_needs_refresh');
+          } catch (e) {
+            // ignore
+          }
+        }
 
-      // First generate a new summary to ensure data is fresh
-      console.log("Dashboard: Generating new summary...");
-      const generatedSummary = await generateSummary({
-        user_id: user.user_id,
-        period_type: "monthly",
-        period_start: periodStart,
-      }).catch((error) => {
-        console.error("Failed to generate summary:", error);
-        return null;
-      });
+        const needsRefresh = force || dirtyFlag || shouldRefreshSummary(cached, user.user_id, periodStart);
 
-      console.log("Dashboard: Generated summary result:", generatedSummary);
+        if (!needsRefresh && cached) {
+          setSummary(cached.summary);
+          return;
+        }
 
-      // Short delay to ensure summary is generated
-      // await new Promise((resolve) => setTimeout(resolve, 100));
+        console.log("Dashboard: Generating new summary for:", periodStart);
+        const generatedSummary = await generateSummary({
+          user_id: user.user_id,
+          period_type: "monthly",
+          period_start: periodStart,
+        }).catch((error) => {
+          console.error("Failed to generate summary:", error);
+          return null;
+        });
 
-      // Fetch summary data
-      const summaryData = await getSummary({
-        user_id: user.user_id,
-        period_type: "monthly",
-        period_start: periodStart,
-      }).catch((err) => {
-        console.error("Failed to fetch summary:", err);
-        return null;
-      });
+        // Fetch summary data
+        const summaryData = await getSummary({
+          user_id: user.user_id,
+          period_type: "monthly",
+          period_start: periodStart,
+        }).catch((err) => {
+          console.error("Failed to fetch summary:", err);
+          return null;
+        });
 
-      // Only update state if we have valid data
-      if (summaryData) {
-        console.log("Dashboard: Updating summary state with:", summaryData);
-        setSummary(summaryData);
+        if (summaryData) {
+          setSummary(summaryData);
+          persistSummaryCache(summaryData, user.user_id, periodStart);
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, periodType]);
+    },
+    [user, periodType]
+  );
 
   // Unified effect for data fetching and refresh subscription
   useEffect(() => {
@@ -148,14 +218,28 @@ const Dashboard: React.FC = () => {
     // Initial data fetch
     fetchData();
 
-    // Subscribe to refresh events
-    const unsubscribe = subscribe(fetchData);
+    // Subscribe to refresh events (force regeneration when triggered)
+    const unsubscribe = subscribe(() => fetchData(true));
 
     return () => {
       console.log("Dashboard: Cleaning up refresh subscription");
       unsubscribe();
     };
   }, [user, subscribe, fetchData]);
+
+  const handleManualRefresh = async () => {
+    try {
+      setLoading(true);
+      await fetchData(true);
+      try {
+        refreshAuthCache?.("dashboard-manual-refresh");
+      } catch (e) {
+        // ignore
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Common graph options
   const graphOptions = {
@@ -295,6 +379,14 @@ const Dashboard: React.FC = () => {
             value={periodType}
             onChange={(e) => setPeriodType(e.target.value)}
           />
+          <button
+            className={styles.refreshBtn}
+            onClick={handleManualRefresh}
+            disabled={loading}
+            title="Refresh dashboard data"
+          >
+            Refresh
+          </button>
         </div>
 
         {loading ? (

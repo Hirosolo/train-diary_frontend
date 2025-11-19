@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 import * as api from '../api';
+import { useDashboardRefresh } from './DashboardRefreshContext';
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const AUTH_CACHE_KEY = 'authCache';
@@ -89,6 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [cacheMeta, setCacheMeta] = useState<AuthCachePayload | null>(null);
+  const { subscribe } = useDashboardRefresh();
 
   const clearAuthState = useCallback(() => {
     setUser(null);
@@ -129,6 +131,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     },
     [user, token]
   );
+
+  React.useEffect(() => {
+    // Subscribe to dashboard-level refresh events (e.g. when workouts/meals change)
+    if (!subscribe) return;
+    const unsubscribe = subscribe(() => {
+      try {
+        refreshAuthCache('dashboard-refresh');
+      } catch (e) {
+        // noop
+      }
+    });
+    return () => unsubscribe();
+  }, [subscribe, refreshAuthCache]);
 
   React.useEffect(() => {
     const hydrateAuth = () => {
