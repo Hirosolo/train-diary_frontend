@@ -40,6 +40,58 @@ import {
 
 import { Exercise } from "../api";
 
+const SESSIONS_CACHE_KEY = "workoutSessionsCache";
+const SESSIONS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const getDayStamp = () => new Date().toISOString().slice(0, 10);
+
+interface SessionsCachePayload {
+  sessions: Session[];
+  fetchedAt: number;
+  dayStamp: string;
+  userId: number | null;
+}
+
+const readSessionsCache = (): SessionsCachePayload | null => {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(SESSIONS_CACHE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed?.sessions)) {
+      return parsed as SessionsCachePayload;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
+
+const persistSessionsCache = (
+  sessions: Session[],
+  userId: number | null
+): SessionsCachePayload => {
+  const payload: SessionsCachePayload = {
+    sessions,
+    fetchedAt: Date.now(),
+    dayStamp: getDayStamp(),
+    userId,
+  };
+  if (typeof window !== "undefined") {
+    localStorage.setItem(SESSIONS_CACHE_KEY, JSON.stringify(payload));
+  }
+  return payload;
+};
+
+const shouldRefreshSessions = (
+  cache: SessionsCachePayload | null,
+  userId: number | null
+) => {
+  if (!cache) return true;
+  if (cache.userId !== userId) return true;
+  if (cache.dayStamp !== getDayStamp()) return true;
+  return Date.now() - cache.fetchedAt >= SESSIONS_CACHE_TTL;
+};
+
 interface Session {
   session_id: number;
   scheduled_date: string;
@@ -100,8 +152,14 @@ const Workouts: React.FC = () => {
     return <div className="dashboard-container">Loading user...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialSessionsCache = readSessionsCache();
+  const [sessionsCache, setSessionsCache] = useState<SessionsCachePayload | null>(
+    initialSessionsCache
+  );
+  const [sessions, setSessions] = useState<Session[]>(
+    () => initialSessionsCache?.sessions || []
+  );
+  const [loading, setLoading] = useState(() => !initialSessionsCache);
   const [showForm, setShowForm] = useState(false);
   const [formDate, setFormDate] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -162,12 +220,25 @@ const Workouts: React.FC = () => {
     }
   }, [sessions]);
 
-  const fetchSessions = async () => {
+  const fetchSessions = async (force = false) => {
+    if (!user?.user_id) return;
+
+    const needsRefresh = force || shouldRefreshSessions(sessionsCache, user.user_id);
+
+    if (!needsRefresh && sessionsCache) {
+      setSessions(sessionsCache.sessions);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     console.log("Refreshing workout sessions...");
     try {
-      const data = await getWorkoutSessions({ user_id: user?.user_id });
-      setSessions(Array.isArray(data) ? data : data.sessions || []);
+      const data = await getWorkoutSessions({ user_id: user.user_id });
+      const nextSessions = Array.isArray(data) ? data : data.sessions || [];
+      setSessions(nextSessions);
+      const payload = persistSessionsCache(nextSessions, user.user_id);
+      setSessionsCache(payload);
     } catch (error) {
       console.error("Error fetching sessions:", error);
       setError("Failed to load workouts");
@@ -176,7 +247,7 @@ const Workouts: React.FC = () => {
   };
 
   const handleRefreshSessions = async () => {
-    await fetchSessions();
+    await fetchSessions(true);
     refreshAuthCache("manual-refresh");
   };
 
@@ -208,7 +279,7 @@ const Workouts: React.FC = () => {
         setFormDate("");
         setFormNotes("");
         setFormType(sessionTypes[0]);
-        fetchSessions();
+        await fetchSessions(true);
         triggerRefresh();
         refreshAuthCache("session-created");
       }
@@ -252,7 +323,7 @@ const Workouts: React.FC = () => {
     try {
       await deleteWorkoutSession(sessionId);
       setDeleteSessionConfirm(null);
-      fetchSessions();
+      await fetchSessions(true);
       triggerRefresh();
       refreshAuthCache("session-deleted");
     } catch (error) {
@@ -271,6 +342,10 @@ const Workouts: React.FC = () => {
     reorderedSessions.splice(destIndex, 0, removed);
 
     setSessions(reorderedSessions);
+    if (user) {
+      const payload = persistSessionsCache(reorderedSessions, user.user_id);
+      setSessionsCache(payload);
+    }
 
     try {
       // Note: Reorder endpoint not in index.ts - keeping direct fetch
@@ -290,7 +365,7 @@ const Workouts: React.FC = () => {
       refreshAuthCache("session-modified");
     } catch (error) {
       console.error("Error reordering sessions:", error);
-      fetchSessions();
+      await fetchSessions(true);
     }
   };
 
@@ -388,7 +463,7 @@ const Workouts: React.FC = () => {
     try {
       await markSessionCompleted(detailsModal.session.session_id);
       setDetailsModal(null);
-      fetchSessions();
+      await fetchSessions(true);
       triggerRefresh();
       refreshAuthCache("session-modified");
     } catch (e) {
