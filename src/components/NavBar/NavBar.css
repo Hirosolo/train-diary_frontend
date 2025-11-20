@@ -39,7 +39,7 @@
   flex: 1;
   position: relative;
   overflow: visible; /* make sure the animated block can sit outside without clipping */
-  padding-bottom: 8px; /* space so block doesn't cover text */
+  padding-bottom: 6px; /* space so underline doesn't overlap text */
 }
 
 .nav-links a {
@@ -72,16 +72,16 @@
 /* Sliding underline */
 .nav-underline {
   position: absolute;
-  /* place block slightly below the text line so it won't overlap or cut text */
-  bottom: -8px;
+  /* thin line directly under the text */
+  bottom: 0;
   left: 0;
-  height: 34px; /* rounded block height */
+  height: 2px; /* thin underline */
   width: 40px;
-  background: rgba(255,255,255,0.02); /* very subtle transparent fill */
-  border: 1px solid var(--primary-color);
-  border-radius: 12px;
+  background: var(--primary-color);
+  border: none;
+  border-radius: 1px;
   transform: translateX(0) translateY(0) scale(1);
-  transition: transform 260ms cubic-bezier(.2,.9,.2,1), width 260ms ease, opacity 160ms ease, box-shadow 220ms ease;
+  transition: transform 220ms cubic-bezier(.2,.9,.2,1), width 220ms ease, opacity 160ms ease, box-shadow 180ms ease;
   opacity: 0;
   pointer-events: none;
   z-index: 1;
