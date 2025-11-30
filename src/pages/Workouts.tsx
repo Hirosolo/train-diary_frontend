@@ -7,13 +7,7 @@ import {
   DroppableProvided,
   DraggableProvided,
 } from "@hello-pangea/dnd";
-import {
-  FaDumbbell,
-  FaFire,
-  FaClock,
-  FaTrophy,
-  FaTimes,
-} from "react-icons/fa";
+import { FaDumbbell, FaFire, FaClock, FaTrophy, FaTimes } from "react-icons/fa";
 import { HiPlusSm } from "react-icons/hi";
 import Navbar from "../components/NavBar/NavBar";
 import { StrictModeDroppable } from "../components/StrictModeDroppable";
@@ -153,9 +147,8 @@ const Workouts: React.FC = () => {
   if (!user) return <Navigate to="/login" replace />;
 
   const initialSessionsCache = readSessionsCache();
-  const [sessionsCache, setSessionsCache] = useState<SessionsCachePayload | null>(
-    initialSessionsCache
-  );
+  const [sessionsCache, setSessionsCache] =
+    useState<SessionsCachePayload | null>(initialSessionsCache);
   const [sessions, setSessions] = useState<Session[]>(
     () => initialSessionsCache?.sessions || []
   );
@@ -223,7 +216,8 @@ const Workouts: React.FC = () => {
   const fetchSessions = async (force = false) => {
     if (!user?.user_id) return;
 
-    const needsRefresh = force || shouldRefreshSessions(sessionsCache, user.user_id);
+    const needsRefresh =
+      force || shouldRefreshSessions(sessionsCache, user.user_id);
 
     if (!needsRefresh && sessionsCache) {
       setSessions(sessionsCache.sessions);
@@ -328,44 +322,6 @@ const Workouts: React.FC = () => {
       refreshAuthCache("session-deleted");
     } catch (error) {
       console.error("Error deleting session:", error);
-    }
-  };
-
-  const onDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
-
-    const sourceIndex = result.source.index;
-    const destIndex = result.destination.index;
-
-    const reorderedSessions = Array.from(sessions);
-    const [removed] = reorderedSessions.splice(sourceIndex, 1);
-    reorderedSessions.splice(destIndex, 0, removed);
-
-    setSessions(reorderedSessions);
-    if (user) {
-      const payload = persistSessionsCache(reorderedSessions, user.user_id);
-      setSessionsCache(payload);
-    }
-
-    try {
-      // Note: Reorder endpoint not in index.ts - keeping direct fetch
-      const token = localStorage.getItem("token");
-
-      await fetch(`${API_URL}/workout-sessions/reorder`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          session_id: parseInt(result.draggableId),
-          new_position: destIndex,
-        }),
-      });
-      refreshAuthCache("session-modified");
-    } catch (error) {
-      console.error("Error reordering sessions:", error);
-      await fetchSessions(true);
     }
   };
 
@@ -546,7 +502,7 @@ const Workouts: React.FC = () => {
     <PageContainer>
       <Navbar />
 
-      <CardGrid className={styles.statsGrid} style={{marginTop: "5rem"}}>
+      <CardGrid className={styles.statsGrid} style={{ marginTop: "5rem" }}>
         <StatCard
           value={workoutStats.totalWorkouts}
           label="Total Workouts"
@@ -582,7 +538,6 @@ const Workouts: React.FC = () => {
           alignItems: "flex-end",
         }}
       >
-
         <button
           className={styles.scheduleBtn}
           style={{ alignSelf: "flex-end" }}
@@ -600,113 +555,81 @@ const Workouts: React.FC = () => {
         </button>
       </div>
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <StrictModeDroppable droppableId="sessions">
-          {(provided: DroppableProvided) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className={styles.cardGrid}
+      <div className={styles.cardGrid}>
+        {loading ? (
+          <Card className={styles.loadingCard}>
+            <div className={styles.loader}>Loading...</div>
+          </Card>
+        ) : sessions.length === 0 ? (
+          <Card className={styles.emptyCard}>
+            <p>
+              No workouts scheduled. Start by scheduling your first workout!
+            </p>
+            <button
+              className={styles.scheduleBtn}
+              onClick={() => setShowForm(true)}
             >
-              {loading ? (
-                <Card className={styles.loadingCard}>
-                  <div className={styles.loader}>Loading...</div>
-                </Card>
-              ) : sessions.length === 0 ? (
-                <Card className={styles.emptyCard}>
-                  <p>
-                    No workouts scheduled. Start by scheduling your first
-                    workout!
-                  </p>
-                  <button
-                    className={styles.scheduleBtn}
-                    onClick={() => setShowForm(true)}
-                  >
-                    <HiPlusSm /> Schedule First Workout
-                  </button>
-                </Card>
-              ) : (
-                [...sessions]
-                  .sort(
-                    (a, b) =>
-                      new Date(a.scheduled_date).getTime() -
-                      new Date(b.scheduled_date).getTime()
-                  )
-                  .map((session, index) => (
-                    <Draggable
-                      key={session.session_id}
-                      draggableId={session.session_id.toString()}
-                      index={index}
-                    >
-                      {(dragProvided: DraggableProvided, snapshot) => (
-                        <div
-                          ref={dragProvided.innerRef}
-                          {...dragProvided.draggableProps}
-                          {...dragProvided.dragHandleProps}
-                        >
-                          <Card
-                            className={`${styles.sessionCard} ${
-                              snapshot.isDragging ? styles.dragging : ""
-                            }`}
-                          >
-                            <div className={styles.sessionHeader}>
-                              <div>
-                                <h3
-                                  className={`${styles.sessionDate} ${
-                                    session.completed ? styles.completed : ""
-                                  }`}
-                                >
-                                  {formatDate(session.scheduled_date)}
-                                </h3>
-                                <div className={styles.sessionStatus}>
-                                  Status:{" "}
-                                  {session.completed ? (
-                                    <span style={{ color: "#4caf50" }}>
-                                      Complete
-                                    </span>
-                                  ) : (
-                                    <span style={{ color: "#ff3e3e" }}>
-                                      Incomplete
-                                    </span>
-                                  )}
-                                </div>
-                                <p className={styles.sessionType}>
-                                  {session.type}
-                                </p>
-                                {session.notes && (
-                                  <p className={styles.sessionNotes}>
-                                    {session.notes}
-                                  </p>
-                                )}
-                              </div>
-                              <div className={styles.sessionActions}>
-                                <button
-                                  className={styles.detailsBtn}
-                                  onClick={() => openDetails(session)}
-                                >
-                                  Details
-                                </button>
-                                <button
-                                  className={styles.deleteBtn}
-                                  onClick={() =>
-                                    setDeleteSessionConfirm(session.session_id)
-                                  }
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </div>
-                          </Card>
-                        </div>
+              <HiPlusSm /> Schedule First Workout
+            </button>
+          </Card>
+        ) : (
+          [...sessions]
+            .sort(
+              (a, b) =>
+                new Date(a.scheduled_date).getTime() -
+                new Date(b.scheduled_date).getTime()
+            )
+            .map((session) => (
+              <div key={session.session_id}>
+                <Card className={styles.sessionCard}>
+                  <div className={styles.sessionHeader}>
+                    <div>
+                      <h3
+                        className={`${styles.sessionDate} ${
+                          session.completed ? styles.completed : ""
+                        }`}
+                      >
+                        {formatDate(session.scheduled_date)}
+                      </h3>
+
+                      <div className={styles.sessionStatus}>
+                        Status:{" "}
+                        {session.completed ? (
+                          <span style={{ color: "#4caf50" }}>Complete</span>
+                        ) : (
+                          <span style={{ color: "#ff3e3e" }}>Incomplete</span>
+                        )}
+                      </div>
+
+                      <p className={styles.sessionType}>{session.type}</p>
+
+                      {session.notes && (
+                        <p className={styles.sessionNotes}>{session.notes}</p>
                       )}
-                    </Draggable>
-                  ))
-              )}
-              {provided.placeholder}
-            </div>
-          )}
-        </StrictModeDroppable>
-      </DragDropContext>
+                    </div>
+
+                    <div className={styles.sessionActions}>
+                      <button
+                        className={styles.detailsBtn}
+                        onClick={() => openDetails(session)}
+                      >
+                        Details
+                      </button>
+                      <button
+                        className={styles.deleteBtn}
+                        onClick={() =>
+                          setDeleteSessionConfirm(session.session_id)
+                        }
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ))
+        )}
+      </div>
 
       {showForm && (
         <ModalContent
