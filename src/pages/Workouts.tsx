@@ -1,16 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import {
-  DragDropContext,
-  Draggable,
-  DropResult,
-  DroppableProvided,
-  DraggableProvided,
-} from "@hello-pangea/dnd";
 import { FaDumbbell, FaFire, FaClock, FaTrophy, FaTimes } from "react-icons/fa";
 import { HiPlusSm } from "react-icons/hi";
 import Navbar from "../components/NavBar/NavBar";
-import { StrictModeDroppable } from "../components/StrictModeDroppable";
 import { useAuth } from "../context/AuthContext";
 import { useDashboardRefresh } from "../context/DashboardRefreshContext";
 import {
@@ -540,7 +532,7 @@ const Workouts: React.FC = () => {
       >
         <button
           className={styles.scheduleBtn}
-          style={{ alignSelf: "flex-end" }}
+          style={{ alignSelf: "flex-end", marginBottom: "2.5rem", marginTop: "0.5rem" }}
           onClick={() => setShowForm(true)}
         >
           Schedule a workout
@@ -672,7 +664,7 @@ const Workouts: React.FC = () => {
             {error && <div className={styles.error}>{error}</div>}
 
             <div className={styles.modalActions}>
-              <button type="submit" className={styles.scheduleBtn}>
+              <button type="submit" className={styles.scheduleBtn} style={{paddingLeft: "1.5rem"}}>
                 Schedule
               </button>
               <button
@@ -908,6 +900,7 @@ const Workouts: React.FC = () => {
               style={{
                 width: 80,
                 padding: 8,
+                marginTop:"1rem",
                 borderRadius: 6,
                 border: "1px solid #444",
                 background: "#222",
@@ -928,6 +921,7 @@ const Workouts: React.FC = () => {
               style={{
                 width: 80,
                 padding: 8,
+                marginTop:"1rem",
                 borderRadius: 6,
                 border: "1px solid #444",
                 background: "#222",
@@ -936,6 +930,7 @@ const Workouts: React.FC = () => {
             />
             <button
               className={styles.addExerciseBtn}
+              style={{marginTop:0}}
               onClick={handleAddExercise}
               disabled={
                 addExerciseLoading ||
@@ -1056,6 +1051,7 @@ const Workouts: React.FC = () => {
           <div className={styles.modalActions}>
             <button
               className={styles.addExerciseBtn}
+              style={{marginTop:0}}
               onClick={handleSubmitLog}
               disabled={!logForm.actual_sets || !logForm.actual_reps}
             >
