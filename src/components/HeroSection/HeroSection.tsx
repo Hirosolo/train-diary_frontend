@@ -104,7 +104,7 @@ export default function HeroSection({ onGetStarted, onLearnMore }: HeroSectionPr
               <span className="stat-label">Success Rate</span>
             </div>
           </div>
-          <button className="btn-primary" onClick={onGetStarted}>
+          <button className="btn-primary" style={{marginTop:"2.5rem"}} onClick={onGetStarted}>
             Start Your Journey
           </button>
         </div>

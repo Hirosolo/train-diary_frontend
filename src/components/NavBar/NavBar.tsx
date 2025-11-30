@@ -17,6 +17,12 @@ export default function Navbar() {
     const underline = underlineRef.current;
     if (!container || !underline) return;
 
+    // Hide underline on home page
+    if (location.pathname === '/') {
+      underline.style.opacity = '0';
+      return;
+    }
+
     const active = container.querySelector('a.active') as HTMLElement | null;
     const firstLink = container.querySelector('a') as HTMLElement | null;
     const target = active || firstLink;
@@ -65,6 +71,13 @@ export default function Navbar() {
       const container = linksRef.current;
       const underline = underlineRef.current;
       if (!container || !underline) return;
+      
+      // Hide underline on home page
+      if (location.pathname === '/') {
+        underline.style.opacity = '0';
+        return;
+      }
+      
       const active = container.querySelector('a.active') as HTMLElement | null;
       const firstLink = container.querySelector('a') as HTMLElement | null;
       const target = active || firstLink;
@@ -90,7 +103,7 @@ export default function Navbar() {
     };
     window.addEventListener('resize-nav-underline', reposition);
     return () => window.removeEventListener('resize-nav-underline', reposition);
-  }, []);
+  }, [location.pathname]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -141,8 +154,8 @@ export default function Navbar() {
             setIsMenuOpen(false);
             setTeleport(true);
           }}
-          className={location.pathname === '/dashboard' || location.pathname === '/' ? 'active' : ''}
-          aria-current={location.pathname === '/dashboard' || location.pathname === '/' ? 'page' : undefined}
+          className={location.pathname === '/dashboard' ? 'active' : ''}
+          aria-current={location.pathname === '/dashboard' ? 'page' : undefined}
         >
           Progress Stats
         </Link>
