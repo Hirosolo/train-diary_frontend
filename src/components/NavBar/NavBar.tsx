@@ -103,7 +103,9 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      <div className="logo" onClick={() => navigate("/")}>TrainDiary</div>
+      <div className="logo" style={{cursor: "pointer"}} onClick={() => navigate("/")}>
+        <img src="/Assest/logo-traindiary.png" alt="TrainDiary" />
+      </div>
       
       <button className="mobile-menu-btn" onClick={toggleMenu}>
         <span className={`hamburger ${isMenuOpen ? 'open' : ''}`}></span>

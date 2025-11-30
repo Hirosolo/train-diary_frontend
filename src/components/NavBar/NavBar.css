@@ -19,6 +19,15 @@
   color: var(--text-color);
   z-index: 1001;
   margin-right: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.logo img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
 .navbar > .logo {
@@ -248,6 +257,10 @@
 @media screen and (max-width: 480px) {
   .logo {
     font-size: 20px;
+  }
+
+  .logo img {
+    height: 32px;
   }
 
   .nav-links a {

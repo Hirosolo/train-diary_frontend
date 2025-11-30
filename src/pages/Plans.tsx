@@ -232,6 +232,7 @@ const Plans: React.FC = () => {
                 <button
                   type="button"
                   className="btn-secondary"
+                  style={{paddingLeft: "3rem", paddingRight: "3rem"}}
                   onClick={() => {
                     setShowApply(false);
                     setSelectedPlan(null);
