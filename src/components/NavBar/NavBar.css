@@ -21,6 +21,7 @@
   margin-right: 40px;
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
 .logo img {
@@ -28,6 +29,13 @@
   width: auto;
   object-fit: contain;
   filter: brightness(0) invert(1);
+}
+
+.logo-text {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--text-color);
+  white-space: nowrap;
 }
 
 .navbar > .logo {
@@ -257,10 +265,15 @@
 @media screen and (max-width: 480px) {
   .logo {
     font-size: 20px;
+    gap: 8px;
   }
 
   .logo img {
     height: 32px;
+  }
+
+  .logo-text {
+    font-size: 20px;
   }
 
   .nav-links a {
