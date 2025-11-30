@@ -376,6 +376,7 @@ const Dashboard: React.FC = () => {
           <input
             type="month"
             className={styles["period-select"]}
+            style={{marginTop:"1rem"}}
             value={periodType}
             onChange={(e) => setPeriodType(e.target.value)}
           />
