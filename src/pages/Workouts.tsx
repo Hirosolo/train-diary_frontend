@@ -840,12 +840,15 @@ const Workouts: React.FC = () => {
                             {log.notes && (
                               <span className="logNotes">({log.notes})</span>
                             )}
-                            <button
-                              className={styles.deleteLogBtn}
-                              onClick={() => handleDeleteLog(log.log_id)}
-                            >
-                              <FaTimes />
-                            </button>
+                            {/* NEW: Only show the delete log button if the session is NOT completed */}
+                            {!detailsModal.session.completed && (
+                              <button
+                                className={styles.deleteLogBtn}
+                                onClick={() => handleDeleteLog(log.log_id)}
+                              >
+                                <FaTimes />
+                              </button>
+                            )}
                           </span>
                         </div>
                       ))}
