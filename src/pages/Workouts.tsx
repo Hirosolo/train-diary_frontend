@@ -146,8 +146,8 @@ const Workouts: React.FC = () => {
   );
   const [loading, setLoading] = useState(() => !initialSessionsCache);
   const [showForm, setShowForm] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState<string>(
-    () => new Date().toISOString().slice(0, 7)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
+    new Date().toISOString().slice(0, 7)
   );
   const [formDate, setFormDate] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -189,6 +189,8 @@ const Workouts: React.FC = () => {
   const [logExerciseId, setLogExerciseId] = useState<number | null>(null);
   const [completingSession, setCompletingSession] = useState(false);
   const [exerciseSearch, setExerciseSearch] = useState("");
+  // NEW: State for tracking the scheduling API call
+  const [isScheduling, setIsScheduling] = useState(false);
 
   useEffect(() => {
     if (user && !authLoading) fetchSessions(true);
@@ -259,6 +261,8 @@ const Workouts: React.FC = () => {
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    // Set scheduling state to true
+    setIsScheduling(true);
     try {
       const data = await createWorkoutSession({
         user_id: user!.user_id,
@@ -279,6 +283,9 @@ const Workouts: React.FC = () => {
     } catch (error) {
       console.error("Error scheduling session:", error);
       // Error notification is handled by the API request function
+    } finally {
+      // Set scheduling state to false regardless of success or failure
+      setIsScheduling(false);
     }
   };
 
@@ -398,7 +405,7 @@ const Workouts: React.FC = () => {
   const filteredExercises = allExercises.filter((ex) =>
     ex.name.toLowerCase().includes(exerciseSearch.toLowerCase())
   );
-  
+
   const openLogModal = (exerciseId: number) => {
     setLogExerciseId(exerciseId);
     setLogForm({ actual_sets: "", actual_reps: "", weight_kg: "", notes: "" });
@@ -533,9 +540,13 @@ const Workouts: React.FC = () => {
   return (
     <PageContainer>
       <Navbar />
-      <div style={{ marginTop: "4rem"}}>
+      <div style={{ marginTop: "4rem" }}>
         <label
-          style={{ fontWeight: "bold", marginRight: "0.5rem", display: "block" }}
+          style={{
+            fontWeight: "bold",
+            marginRight: "0.5rem",
+            display: "block",
+          }}
         >
           Workouts in
         </label>
@@ -684,6 +695,7 @@ const Workouts: React.FC = () => {
                 value={formDate}
                 onChange={(e) => setFormDate(e.target.value)}
                 required
+                disabled={isScheduling}
               />
             </div>
             <div className={styles.formGroup}>
@@ -692,6 +704,7 @@ const Workouts: React.FC = () => {
                 value={formType}
                 onChange={(e) => setFormType(e.target.value)}
                 required
+                disabled={isScheduling}
               >
                 {sessionTypes.map((type) => (
                   <option key={type} value={type}>
@@ -706,6 +719,7 @@ const Workouts: React.FC = () => {
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 rows={3}
+                disabled={isScheduling}
               />
             </div>
 
@@ -715,14 +729,17 @@ const Workouts: React.FC = () => {
               <button
                 type="submit"
                 className={styles.scheduleBtn}
-                style={{ paddingLeft: "1.5rem" }}
+                style={{ width: "5rem", alignContent: "center", paddingLeft: "0", paddingRight: "0" }} // <-- Set a fixed, wider width
+                disabled={isScheduling}
               >
-                Schedule
+                {isScheduling ? "Scheduling..." : "Schedule"}
               </button>
               <button
                 type="button"
                 className={styles.cancelBtn}
                 onClick={() => setShowForm(false)}
+                // MODIFIED: Disable cancel button while scheduling
+                disabled={isScheduling}
               >
                 Cancel
               </button>

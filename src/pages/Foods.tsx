@@ -84,6 +84,12 @@ const Foods: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
   );
+  // State to manage loading for meal logging (Save Meal)
+  const [isLoggingMeal, setIsLoggingMeal] = useState(false);
+  // NEW: State to manage loading for meal details (Show Details)
+  const [isLoadingMealDetails, setIsLoadingMealDetails] = useState(false);
+  // NEW: State to manage loading for meal deletion (Delete Meal)
+  const [isDeletingMeal, setIsDeletingMeal] = useState(false);
 
   // load meals + daily intake for selected date
   useEffect(() => {
@@ -275,6 +281,9 @@ const Foods: React.FC = () => {
       setError("Add at least one food.");
       return;
     }
+    
+    // Set logging state to true
+    setIsLoggingMeal(true);
 
     const foodsPayload = mealFoods.map((f) => ({
       food_id: f.food.food_id,
@@ -313,6 +322,9 @@ const Foods: React.FC = () => {
     } catch (err) {
       console.error("Error logging meal:", err);
       setError("Failed to log meal. Please try again.");
+    } finally {
+      // Set logging state to false
+      setIsLoggingMeal(false);
     }
   };
 
@@ -323,6 +335,11 @@ const Foods: React.FC = () => {
       setMealDetails([]);
       return;
     }
+
+    // NEW: Set loading state for details
+    setIsLoadingMealDetails(true);
+    setExpandedMeal(meal_id);
+    setMealDetails([]); // Clear previous details
 
     try {
       const res = await fetch(`${API_URL}/meal-details/nutrition?meal_id=${meal_id}`);
@@ -347,15 +364,19 @@ const Foods: React.FC = () => {
         serving_type: item.serving_type,
       }));
 
-      setExpandedMeal(meal_id);
       setMealDetails(mappedDetails);
     } catch (err) {
       console.error("Error loading meal details:", err);
+    } finally {
+      // NEW: Clear loading state for details
+      setIsLoadingMealDetails(false);
     }
   };
 
   const confirmDeleteMeal = async () => {
     if (deleteMealId) {
+      // NEW: Set loading state for deletion
+      setIsDeletingMeal(true);
       try {
         await deleteFoodLog(deleteMealId);
 
@@ -378,6 +399,9 @@ const Foods: React.FC = () => {
         refreshAuthCache("meal-deleted");
       } catch (err) {
         console.error("Error deleting meal:", err);
+      } finally {
+        // NEW: Clear loading state for deletion
+        setIsDeletingMeal(false);
       }
     }
   };
@@ -506,14 +530,21 @@ const Foods: React.FC = () => {
                   <button
                     className={styles.detailsBtn}
                     onClick={() => handleExpandMeal(meal.meal_id)}
+                    // NEW: Disable while loading details
+                    disabled={isLoadingMealDetails}
                   >
-                    {expandedMeal === meal.meal_id
+                    {/* NEW: Show loading dots or text */}
+                    {isLoadingMealDetails && expandedMeal !== meal.meal_id
+                      ? "Loading..."
+                      : expandedMeal === meal.meal_id
                       ? "Hide Details"
                       : "Show Details"}
                   </button>
                   <button
                     className={styles.deleteBtn}
                     onClick={() => setDeleteMealId(meal.meal_id)}
+                    // NEW: Disable while deleting another meal
+                    disabled={isDeletingMeal}
                   >
                     Delete
                   </button>
@@ -522,12 +553,13 @@ const Foods: React.FC = () => {
 
               {expandedMeal === meal.meal_id && (
                 <div className={styles.mealDetails}>
-                  {mealDetails.map((food, idx) => (
+                  {isLoadingMealDetails && mealDetails.length === 0 ? (
+                    <LoadingDots />
+                  ) : mealDetails.map((food, idx) => (
                     <div key={idx} className={styles.foodItem}>
                       <div className={styles.foodInfo}>
                         <span className={styles.foodName}>{food.name}</span>
                         <span className={styles.foodAmount}>
-                          {/* 💡 FIXED: Use the helper function to display correct unit (grams or serving type) */}
                           {formatMealFoodAmount(
                             food.amount_grams.toString(),
                             food.serving_type
@@ -572,6 +604,7 @@ const Foods: React.FC = () => {
                 value={form.log_date}
                 onChange={(e) => setForm({ ...form, log_date: e.target.value })}
                 required
+                disabled={isLoggingMeal}
               />
             </div>
 
@@ -583,6 +616,7 @@ const Foods: React.FC = () => {
                   setForm({ ...form, meal_type: e.target.value })
                 }
                 required
+                disabled={isLoggingMeal}
               >
                 <option value="breakfast">Breakfast</option>
                 <option value="lunch">Lunch</option>
@@ -607,6 +641,7 @@ const Foods: React.FC = () => {
                     onClick={() =>
                       setMealFoods((foods) => foods.filter((_, i) => i !== idx))
                     }
+                    disabled={isLoggingMeal}
                   >
                     Remove
                   </button>
@@ -616,6 +651,7 @@ const Foods: React.FC = () => {
                 type="button"
                 className={styles.addFoodBtn}
                 onClick={handleAddFood}
+                disabled={isLoggingMeal}
               >
                 <HiPlusSm /> Add Food
               </button>
@@ -624,13 +660,23 @@ const Foods: React.FC = () => {
             {error && <div className={styles.error}>{error}</div>}
 
             <div className={styles.modalActions}>
-              <button type="submit" className="btn-primary">
-                Save Meal
+              <button
+                type="submit"
+                className="btn-primary"
+                // Set a fixed width to prevent overflow
+                style={{ width: "120px" }}
+                // Disable button while logging meal
+                disabled={isLoggingMeal}
+              >
+                {/* Show loading text */}
+                {isLoggingMeal ? "Saving..." : "Save Meal"}
               </button>
               <button
                 type="button"
                 className="btn-secondary"
                 onClick={() => setShowForm(false)}
+                // Disable cancel button while logging meal
+                disabled={isLoggingMeal}
               >
                 Cancel
               </button>
@@ -727,12 +773,20 @@ const Foods: React.FC = () => {
           <div className={styles.deleteConfirm}>
             <p>Are you sure you want to delete this meal?</p>
             <div className={styles.modalActions}>
-              <button className="btn-danger" onClick={confirmDeleteMeal}>
-                Delete
+              <button
+                className="btn-danger"
+                onClick={confirmDeleteMeal}
+                // NEW: Disable while deleting meal
+                disabled={isDeletingMeal}
+              >
+                {/* NEW: Show loading text */}
+                {isDeletingMeal ? "Deleting..." : "Delete"}
               </button>
               <button
                 className="btn-secondary"
                 onClick={() => setDeleteMealId(null)}
+                // NEW: Disable while deleting meal
+                disabled={isDeletingMeal}
               >
                 Cancel
               </button>
