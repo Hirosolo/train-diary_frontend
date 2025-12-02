@@ -459,6 +459,32 @@ export const deleteWorkoutSession = (
     successMessage: "Session deleted",
   });
 
+// --- PROGRESS (GR SCORE) ---
+export interface ProgressEntry {
+  date: string;
+  gr_score: number;
+}
+
+export const getProgress = (params: {
+  user_id: number;
+  year: number;
+  month: number;
+}): Promise<ProgressEntry[]> => {
+  const query = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries({
+        user_id: String(params.user_id),
+        year: String(params.year),
+        month: String(params.month),
+      })
+    )
+  ).toString();
+
+  return request<ProgressEntry[]>(`${API_URL}/progress?${query}`, {
+    headers: getHeaders(),
+  });
+};
+
 /** ---------- Workout Plans ---------- **/
 
 export interface PlanDayExercise {

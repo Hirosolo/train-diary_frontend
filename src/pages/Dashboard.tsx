@@ -22,7 +22,14 @@ import {
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { useDashboardRefresh } from "../context/DashboardRefreshContext";
-import { generateSummary, getSummary } from "../api";
+import {
+  generateSummary,
+  getSummary,
+  getDailyFoodIntake,
+  DailyFoodIntake,
+  getProgress,
+  ProgressEntry,
+} from "../api";
 import Navbar from "../components/NavBar/NavBar";
 import {
   PageContainer,
@@ -83,9 +90,18 @@ const Dashboard: React.FC = () => {
   const { user, loading: authLoading, refreshAuthCache } = useAuth();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [dailyIntake, setDailyIntake] = useState<DailyFoodIntake[]>([]);
+  const [monthlyNutrition, setMonthlyNutrition] = useState<{
+    totalCalories: number;
+    totalProtein: number;
+  }>({
+    totalCalories: 0,
+    totalProtein: 0,
+  });
   const [periodType, setPeriodType] = useState<string>(
     new Date().toISOString().slice(0, 7)
   );
+  const [progressData, setProgressData] = useState<ProgressEntry[]>([]);
   const { subscribe } = useDashboardRefresh();
   const [showGRTooltip, setShowGRTooltip] = useState(false);
 
@@ -159,6 +175,9 @@ const Dashboard: React.FC = () => {
       try {
         setLoading(true);
         const periodStart = `${periodType}-01`; // First day of selected month
+        const [yearStr, monthStr] = periodType.split("-");
+        const year = Number(yearStr);
+        const month = Number(monthStr);
 
         const cached = readSummaryCache();
         const dirtyFlag = typeof window !== 'undefined' && !!localStorage.getItem('dashboard_needs_refresh');
@@ -174,6 +193,51 @@ const Dashboard: React.FC = () => {
 
         if (!needsRefresh && cached) {
           setSummary(cached.summary);
+          // Use cached summary period to derive nutrition as well
+          const dates = getDatesInMonth(periodType);
+          const intakePromises = dates.map((date) =>
+            getDailyFoodIntake(user.user_id, date).catch((err) => {
+              console.error("Failed to fetch daily intake for", date, err);
+              return null;
+            })
+          );
+          const intakeResults = (await Promise.all(intakePromises)).filter(
+            (d): d is DailyFoodIntake => d !== null
+          );
+          setDailyIntake(intakeResults);
+          const totalCalories = intakeResults.reduce(
+            (sum, d) => sum + (d.calories || 0),
+            0
+          );
+          const totalProtein = intakeResults.reduce(
+            (sum, d) => sum + (d.protein || 0),
+            0
+          );
+          setMonthlyNutrition({ totalCalories, totalProtein });
+
+          // Fetch GR progress for selected month
+          if (year && month) {
+            const progress = await getProgress({
+              user_id: user.user_id,
+              year,
+              month,
+            }).catch((err) => {
+              console.error("Failed to fetch progress:", err);
+              return null;
+            });
+            if (progress) {
+              setProgressData(normalizeMonthlyProgress(progress, periodType));
+            } else {
+              setProgressData(
+                getDatesInMonth(periodType).map((date) => ({
+                  date,
+                  gr_score: 0,
+                }))
+              );
+            }
+          } else {
+            setProgressData([]);
+          }
           return;
         }
 
@@ -200,6 +264,53 @@ const Dashboard: React.FC = () => {
         if (summaryData) {
           setSummary(summaryData);
           persistSummaryCache(summaryData, user.user_id, periodStart);
+
+          // Fetch daily intake for each day in the selected month
+          const dates = getDatesInMonth(periodType);
+          const intakePromises = dates.map((date) =>
+            getDailyFoodIntake(user.user_id, date).catch((err) => {
+              console.error("Failed to fetch daily intake for", date, err);
+              return null;
+            })
+          );
+          const intakeResults = (await Promise.all(intakePromises)).filter(
+            (d): d is DailyFoodIntake => d !== null
+          );
+          setDailyIntake(intakeResults);
+
+          const totalCalories = intakeResults.reduce(
+            (sum, d) => sum + (d.calories || 0),
+            0
+          );
+          const totalProtein = intakeResults.reduce(
+            (sum, d) => sum + (d.protein || 0),
+            0
+          );
+          setMonthlyNutrition({ totalCalories, totalProtein });
+
+          // Fetch GR progress for selected month
+          if (year && month) {
+            const progress = await getProgress({
+              user_id: user.user_id,
+              year,
+              month,
+            }).catch((err) => {
+              console.error("Failed to fetch progress:", err);
+              return null;
+            });
+            if (progress) {
+              setProgressData(normalizeMonthlyProgress(progress, periodType));
+            } else {
+              setProgressData(
+                getDatesInMonth(periodType).map((date) => ({
+                  date,
+                  gr_score: 0,
+                }))
+              );
+            }
+          } else {
+            setProgressData([]);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -289,10 +400,10 @@ const Dashboard: React.FC = () => {
 
   // Prepare nutrition graph data
   const nutritionGraphData = React.useMemo(() => {
-    if (!summary?.dailyData?.length) return null;
+    if (!dailyIntake.length) return null;
 
     return {
-      labels: summary.dailyData.map((d) =>
+      labels: dailyIntake.map((d) =>
         new Date(d.date).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
@@ -301,7 +412,7 @@ const Dashboard: React.FC = () => {
       datasets: [
         {
           label: "Calories",
-          data: summary.dailyData.map((d) => d.calories),
+          data: dailyIntake.map((d) => d.calories),
           borderColor: "rgb(255, 99, 132)",
           backgroundColor: "rgba(255, 99, 132, 0.5)",
           yAxisID: "y",
@@ -309,7 +420,7 @@ const Dashboard: React.FC = () => {
         },
         {
           label: "Protein (g)",
-          data: summary.dailyData.map((d) => d.protein),
+          data: dailyIntake.map((d) => d.protein),
           borderColor: "rgb(53, 162, 235)",
           backgroundColor: "rgba(53, 162, 235, 0.5)",
           yAxisID: "y1",
@@ -317,14 +428,14 @@ const Dashboard: React.FC = () => {
         },
       ],
     };
-  }, [summary]);
+  }, [dailyIntake]);
 
-  // Prepare workout graph data
-  const workoutGraphData = React.useMemo(() => {
-    if (!summary?.dailyData?.length) return null;
+  // Prepare GR score graph data (from progress API)
+  const grScoreGraphData = React.useMemo(() => {
+    if (!progressData.length) return null;
 
     return {
-      labels: summary.dailyData.map((d) =>
+      labels: progressData.map((d) =>
         new Date(d.date).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
@@ -333,24 +444,43 @@ const Dashboard: React.FC = () => {
       datasets: [
         {
           label: "GR Score",
-          data: summary.dailyData.map((d) => d.gr_score),
+          data: progressData.map((d) => d.gr_score),
           borderColor: "rgb(75, 192, 192)",
           backgroundColor: "rgba(75, 192, 192, 0.5)",
           tension: 0.4,
         },
-        {
-          label: "Workouts",
-          data: summary.dailyData.map((d) => d.workouts),
-          borderColor: "rgb(255, 159, 64)",
-          backgroundColor: "rgba(255, 159, 64, 0.5)",
-          tension: 0.4,
-        },
       ],
     };
-  }, [summary]);
+  }, [progressData]);
   
   const formatNumber = (num: number): string => {
     return num >= 1000 ? (num / 1000).toFixed(1) + "k" : num.toString();
+  };
+
+  const getDatesInMonth = (yearMonth: string): string[] => {
+    const [yearStr, monthStr] = yearMonth.split("-");
+    const year = Number(yearStr);
+    const month = Number(monthStr); // 1-12
+    if (!year || !month) return [];
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const dates: string[] = [];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayStr = String(day).padStart(2, "0");
+      dates.push(`${yearMonth}-${dayStr}`);
+    }
+
+    return dates;
+  };
+
+  const normalizeMonthlyProgress = (
+    entries: ProgressEntry[],
+    yearMonth: string
+  ): ProgressEntry[] => {
+    const byDate = new Map(entries.map((e) => [e.date, e]));
+    const dates = getDatesInMonth(yearMonth);
+    return dates.map((date) => byDate.get(date) || { date, gr_score: 0 });
   };
 
   const calculateChange = (current: number, previous: number): number => {
@@ -402,17 +532,30 @@ const Dashboard: React.FC = () => {
               />
               <StatCard
                 label="Total Calories Intake"
-                value={formatNumber(summary.total_calories_intake)}
+                value={formatNumber( monthlyNutrition.totalCalories / dailyIntake.length)}
                 icon={<FaFire color="#f08f30" />}
               />
               <StatCard
                 label="Avg. Daily Protein"
-                value={`${summary.avg_protein.toFixed(1)}g`}
+                value={`${
+                  monthlyNutrition.totalProtein && dailyIntake.length
+                    ? (monthlyNutrition.totalProtein / dailyIntake.length).toFixed(1)
+                    : "0.0"
+                }g`}
                 icon={<FaAppleAlt color="#90ee90" />}
               />
               <StatCard
                 label="Avg. GR Score"
-                value={summary.avg_gr_score.toFixed(1)}
+                value={
+                  progressData.length
+                    ? (
+                        progressData.reduce(
+                          (sum, d) => sum + (d.gr_score || 0),
+                          0
+                        ) / progressData.length
+                      ).toFixed(1)
+                    : "0.0"
+                }
                 icon={<FaTrophy color="#ffd700" />}
               />
             </div>
@@ -431,8 +574,7 @@ const Dashboard: React.FC = () => {
 
               <div className={styles.graphSection}>
                 <h3 className={styles.graphTitleWithTooltip}>
-                  Workouts
-                  <span className={styles.grScoreText}>& GR Score</span>
+                  GR Score
                   <span
                     className={styles.tooltipIcon}
                     onMouseEnter={() => setShowGRTooltip(true)}
@@ -448,11 +590,11 @@ const Dashboard: React.FC = () => {
                     )}
                   </span>
                 </h3>
-                {workoutGraphData ? (
-                  <Line data={workoutGraphData} options={graphOptions} />
+                {grScoreGraphData ? (
+                  <Line data={grScoreGraphData} options={graphOptions} />
                 ) : (
                   <div className={styles.emptyState}>
-                    No workout data available for this period.
+                    No GR score data available for this period.
                   </div>
                 )}
               </div>
