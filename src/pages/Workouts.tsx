@@ -282,33 +282,40 @@ const Workouts: React.FC = () => {
     }
   };
 
+  /**
+   * MODIFIED: To use the unified /workout-sessions DELETE API with session_detail_id in the body.
+   */
   const handleDeleteExercise = async (detailId: number) => {
     try {
-      // Note: The API doesn't have a delete exercise from session endpoint in index.ts
-      // You'll need to add this to your API or use a direct fetch call
       const token = localStorage.getItem("token");
 
-      const response = await fetch(
-        `${API_URL}/workout-sessions/details/${detailId}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      // The DELETE endpoint expects session_detail_id in the body for deleting an exercise
+      const response = await fetch(`${API_URL}/workout-sessions`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ session_detail_id: detailId }),
+      });
 
-      if (!response.ok) throw new Error("Failed to delete exercise");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete exercise");
+      }
 
       setDeleteExerciseConfirm(null);
       if (detailsModal?.session) {
-        openDetails(detailsModal.session);
+        openDetails(detailsModal.session); // Refresh details
       }
       refreshAuthCache("session-modified");
     } catch (error) {
       console.error("Error deleting exercise:", error);
-      setError("Failed to delete exercise. Please try again.");
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("Failed to delete exercise. Please try again.");
+      }
     }
   };
 
@@ -489,24 +496,37 @@ const Workouts: React.FC = () => {
     setAddExerciseLoading(false);
   };
 
+  /**
+   * MODIFIED: To use the unified /workout-sessions DELETE API with log_id in the body.
+   */
   const handleDeleteLog = async (logId: number) => {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch(`${API_URL}/workout-sessions/log/${logId}`, {
+      // The DELETE endpoint expects log_id in the body for deleting an exercise log
+      const response = await fetch(`${API_URL}/workout-sessions`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ log_id: logId }),
       });
 
-      if (!response.ok) throw new Error("Failed to delete log");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete log");
+      }
 
-      if (detailsModal?.session) openDetails(detailsModal.session);
+      if (detailsModal?.session) openDetails(detailsModal.session); // Refresh details
       refreshAuthCache("session-modified");
     } catch (e) {
       console.error("Failed to delete log:", e);
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("Failed to delete log. Please try again.");
+      }
     }
   };
 
