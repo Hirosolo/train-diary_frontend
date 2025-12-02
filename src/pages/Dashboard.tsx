@@ -527,12 +527,18 @@ const Dashboard: React.FC = () => {
             <div className={styles.summaryStats}>
               <StatCard
                 label="Total Workouts"
-                value={summary.total_workouts}
+                value={
+                  progressData.length
+                    ? progressData.filter((d) => (d.gr_score || 0) > 0).length
+                    : 0
+                }
                 icon={<FaDumbbell color="#e66" />}
               />
               <StatCard
-                label="Total Calories Intake"
-                value={formatNumber( monthlyNutrition.totalCalories / dailyIntake.length)}
+                label="Avg. Calories Intake"
+                value={formatNumber(
+                  Number((monthlyNutrition.totalCalories / dailyIntake.length).toFixed(2))
+                )}
                 icon={<FaFire color="#f08f30" />}
               />
               <StatCard
