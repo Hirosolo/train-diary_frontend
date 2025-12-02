@@ -380,6 +380,22 @@ const Foods: React.FC = () => {
     });
   };
 
+  const formatMealFoodAmount = (amount: string, servingType: string) => {
+    const unit = (servingType || "").trim();
+
+    // If serving type looks like a gram-based unit, e.g. "100 g",
+    // then "amount" already represents the total grams for this food.
+    // Show "300g" instead of "3 100 g".
+    const gramPattern = /\d+\s*g$/i;
+    if (gramPattern.test(unit)) {
+      return `${amount}g`;
+    }
+
+    // Otherwise, treat it as a count-based unit like "whole egg" or "piece"
+    // and show "3 whole egg", "3 piece", etc.
+    return unit ? `${amount} ${unit}` : amount;
+  };
+
   return (
     <PageContainer>
       <Navbar />
@@ -574,7 +590,12 @@ const Foods: React.FC = () => {
               {mealFoods.map((mealFood, idx) => (
                 <div key={idx} className={styles.foodItem}>
                   <span>{mealFood.food.name}</span>
-                  <span>{mealFood.amount_grams} {mealFood.serving_type}</span>
+                  <span>
+                    {formatMealFoodAmount(
+                      mealFood.amount_grams,
+                      mealFood.serving_type
+                    )}
+                  </span>
                   <button
                     type="button"
                     className="btn-icon-danger"
