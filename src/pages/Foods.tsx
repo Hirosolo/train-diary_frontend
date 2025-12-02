@@ -222,6 +222,19 @@ const Foods: React.FC = () => {
     setShowFoodModal(true);
   };
 
+  /**
+   * If the serving type contains a gram-based size (e.g. "100g", "50 g"),
+   * extract that numeric gram amount so we can treat the user's input
+   * as "number of servings" instead of raw grams.
+   */
+  const getServingSizeInGrams = (
+    servingType: string | undefined
+  ): number | null => {
+    if (!servingType) return null;
+    const match = servingType.match(/(\d+(?:\.\d+)?)\s*g/i);
+    return match ? parseFloat(match[1]) : null;
+  };
+
   const handleSelectFood = (food: Food) => {
     setSelectedFood(food);
     setAmountGrams("");
@@ -229,9 +242,15 @@ const Foods: React.FC = () => {
 
   const handleAddFoodToMeal = () => {
     if (selectedFood && amountGrams) {
+      const numericAmount = parseFloat(amountGrams);
+      const gramsPerServing = getServingSizeInGrams(selectedFood.serving_type);
+      const amountInGrams = gramsPerServing
+        ? numericAmount * gramsPerServing
+        : numericAmount;
+
       setMealFoods([
         ...mealFoods,
-        { food: selectedFood, amount_grams: amountGrams },
+        { food: selectedFood, amount_grams: amountInGrams.toString() },
       ]);
       setShowFoodModal(false);
       setSelectedFood(null);
