@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { FaDumbbell, FaFire, FaClock, FaTrophy, FaTimes } from "react-icons/fa";
+import { FaDumbbell, FaTrophy, FaTimes } from "react-icons/fa";
 import { HiPlusSm } from "react-icons/hi";
 import Navbar from "../components/NavBar/NavBar";
 import { useAuth } from "../context/AuthContext";
@@ -146,6 +146,9 @@ const Workouts: React.FC = () => {
   );
   const [loading, setLoading] = useState(() => !initialSessionsCache);
   const [showForm, setShowForm] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    () => new Date().toISOString().slice(0, 7)
+  );
   const [formDate, setFormDate] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [error, setError] = useState("");
@@ -188,8 +191,8 @@ const Workouts: React.FC = () => {
   const [exerciseSearch, setExerciseSearch] = useState("");
 
   useEffect(() => {
-    if (user && !authLoading) fetchSessions();
-  }, [user, authLoading]);
+    if (user && !authLoading) fetchSessions(true);
+  }, [user, authLoading, selectedMonth]);
 
   useEffect(() => {
     if (sessions.length > 0) {
@@ -221,7 +224,10 @@ const Workouts: React.FC = () => {
     setLoading(true);
     console.log("Refreshing workout sessions...");
     try {
-      const data = await getWorkoutSessions({ user_id: user.user_id });
+      const data = await getWorkoutSessions({
+        user_id: user.user_id,
+        month: selectedMonth,
+      });
       const nextSessions = Array.isArray(data) ? data : data.sessions || [];
       setSessions(nextSessions);
       const payload = persistSessionsCache(nextSessions, user.user_id);
@@ -331,17 +337,33 @@ const Workouts: React.FC = () => {
   };
 
   const calculateWeeklyStreak = (sessions: Session[]): number => {
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    // Collect all completed workout dates as YYYY-MM-DD strings
+    const completedDateStrings = sessions
+      .filter((s) => s.completed)
+      .map((s) => s.scheduled_date.slice(0, 10));
 
-    const completedThisWeek = sessions.filter((session) => {
-      const sessionDate = new Date(session.scheduled_date);
-      return (
-        session.completed && sessionDate >= oneWeekAgo && sessionDate <= now
-      );
-    });
+    if (completedDateStrings.length === 0) return 0;
 
-    return completedThisWeek.length;
+    // Find the most recent completed workout day
+    const latestDateStr = completedDateStrings.reduce((max, cur) =>
+      cur > max ? cur : max
+    );
+
+    const completedDates = new Set(completedDateStrings);
+
+    // Start counting from that most recent workout day backwards
+    let streak = 0;
+    const cursor = new Date(latestDateStr);
+
+    while (true) {
+      const dayKey = cursor.toISOString().slice(0, 10);
+      if (!completedDates.has(dayKey)) break;
+
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    return streak;
   };
 
   const calculateAverageDuration = (sessions: Session[]): number => {
@@ -433,13 +455,6 @@ const Workouts: React.FC = () => {
       )
     );
 
-  const getTodaysCompletedCount = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    return sessions.filter(
-      (s) => s.scheduled_date.slice(0, 10) === today && s.completed
-    ).length;
-  };
-
   const handleAddExercise = async () => {
     if (
       !detailsModal ||
@@ -507,28 +522,34 @@ const Workouts: React.FC = () => {
           className={styles.statCard}
         />
         <StatCard
-          value={getTodaysCompletedCount()}
-          label="Today's Workout"
-          icon={<FaFire />}
-          className={styles.statCard}
-        />
-        <StatCard
-          value={`${workoutStats.weeklyStreak} weeks`}
+          value={`${workoutStats.weeklyStreak}`}
           label="Current Streak"
           icon={<FaTrophy />}
           className={styles.statCard}
         />
-        <StatCard
-          value={`${workoutStats.avgDuration} min`}
-          label="Avg. Duration"
-          icon={<FaClock />}
-          className={styles.statCard}
-        />
       </CardGrid>
+
+      <div style={{ marginTop: "2.5rem", marginBottom: "0.7rem" }}>
+        <label
+          style={{ fontWeight: "bold", marginRight: "0.5rem", display: "block" }}
+        >
+          Workouts in
+        </label>
+        <input
+          type="month"
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          style={{
+            padding: "0.3rem",
+            borderRadius: "6px",
+            marginTop: "0.5rem",
+          }}
+        />
+      </div>
 
       <div
         style={{
-          marginTop: "2.5rem",
+          marginTop: "1.5rem",
           marginBottom: "0.7rem",
           display: "flex",
           flexDirection: "row",

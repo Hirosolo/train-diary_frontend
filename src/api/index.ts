@@ -385,6 +385,7 @@ interface WorkoutSessionResponse {
 export const getWorkoutSessions = (params: {
   user_id?: number;
   session_id?: number;
+  month?: string;
 }): Promise<any> => {
   const query = new URLSearchParams(
     params as Record<string, string>
