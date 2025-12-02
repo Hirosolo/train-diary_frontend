@@ -28,14 +28,18 @@ interface Meal {
   meal_type: string;
 }
 
+// 💡 MODIFIED: Updated interface to match the /meal-details/nutrition endpoint response
+// It now contains total nutrition (calories, protein, carbs, fat) instead of per_serving values
 interface MealFood {
+  meal_detail_id?: number; // Added: Optional ID for the detail record
   food_id?: number;
   name: string;
-  calories_per_serving: number;
-  protein_per_serving: number;
-  carbs_per_serving: number;
-  fat_per_serving: number;
   amount_grams: number;
+  calories: number; // Total calories for this amount
+  protein: number; // Total protein for this amount
+  carbs: number; // Total carbs for this amount
+  fat: number; // Total fat for this amount
+  serving_type: string;
 }
 
 interface Food {
@@ -71,7 +75,8 @@ const Foods: React.FC = () => {
   const [amountGrams, setAmountGrams] = useState("");
   const [error, setError] = useState("");
   const [expandedMeal, setExpandedMeal] = useState<number | null>(null);
-  const [mealDetails, setMealDetails] = useState<MealFood[]>([]);
+  // 💡 Updated state type to use the new MealFood interface
+  const [mealDetails, setMealDetails] = useState<MealFood[]>([]); 
   const [deleteMealId, setDeleteMealId] = useState<number | null>(null);
   const [dailyTotals, setDailyTotals] = useState({
     calories: 0,
@@ -185,6 +190,9 @@ const Foods: React.FC = () => {
             meal.user_meal_details?.map((detail: any) => ({
               food_id: detail.food?.food_id,
               name: detail.food?.name ?? "Unknown Food",
+              // ⚠️ NOTE: These per_serving fields are now technically unnecessary here 
+              // for display since handleExpandMeal uses the new endpoint, but they 
+              // are kept to avoid breaking the initial fetch/map logic structure.
               calories_per_serving: detail.food?.calories_per_serving ?? 0,
               protein_per_serving: detail.food?.protein_per_serving ?? 0,
               carbs_per_serving: detail.food?.carbs_per_serving ?? 0,
@@ -192,9 +200,9 @@ const Foods: React.FC = () => {
               amount_grams: detail.amount_grams,
             })) || [];
 
-          // keep foods nutrition in sync with /foods endpoint
+          // keep foods nutrition in sync with /foods endpoint (kept for robustness)
           foods = await Promise.all(
-            foods.map(async (food: MealFood) => {
+            foods.map(async (food: any) => { // Use 'any' temporarily to handle the property mismatch
               if (!food.food_id) return food;
 
               try {
@@ -208,6 +216,7 @@ const Foods: React.FC = () => {
 
                 return {
                   ...food,
+                  // These per_serving values are kept only for the initial state/structure
                   calories_per_serving:
                     real?.calories_per_serving ?? food.calories_per_serving,
                   protein_per_serving:
@@ -314,6 +323,7 @@ const Foods: React.FC = () => {
     }
   };
 
+  // 💡 MODIFIED: Use the new /meal-details/nutrition endpoint for pre-calculated totals
   const handleExpandMeal = async (meal_id: number) => {
     if (expandedMeal === meal_id) {
       setExpandedMeal(null);
@@ -322,18 +332,26 @@ const Foods: React.FC = () => {
     }
 
     try {
-      const res = await fetch(`${API_URL}/meal-details?meal_id=${meal_id}`);
+      const res = await fetch(`${API_URL}/meal-details/nutrition?meal_id=${meal_id}`);
+
+      if (!res.ok) {
+        console.error("Failed to load meal nutrition details:", await res.text());
+        return;
+      }
 
       const data = await res.json();
+      const foodsDetails = data.foods || [];
 
-      const mappedDetails = data.map((item: any) => ({
-        food_id: item.food.food_id,
-        name: item.food.name,
-        calories_per_serving: item.food.calories_per_serving,
-        protein_per_serving: item.food.protein_per_serving,
-        carbs_per_serving: item.food.carbs_per_serving,
-        fat_per_serving: item.food.fat_per_serving,
+      const mappedDetails: MealFood[] = foodsDetails.map((item: any) => ({
+        meal_detail_id: item.meal_detail_id,
+        food_id: item.food_id,
+        name: item.name,
         amount_grams: item.amount_grams,
+        calories: item.calories, // Direct use of total calories
+        protein: item.protein,   // Direct use of total protein
+        carbs: item.carbs,       // Direct use of total carbs
+        fat: item.fat,           // Direct use of total fat
+        serving_type: item.serving_type,
       }));
 
       setExpandedMeal(meal_id);
@@ -514,36 +532,26 @@ const Foods: React.FC = () => {
                       <div className={styles.foodInfo}>
                         <span className={styles.foodName}>{food.name}</span>
                         <span className={styles.foodAmount}>
+                          {/* 💡 The amount_grams is already the total grams */}
                           {food.amount_grams}g
                         </span>
                       </div>
                       <div className={styles.foodNutrition}>
+                        {/* 💡 MODIFIED: Display total nutrition directly */}
                         <span>
-                          {(
-                            (food.calories_per_serving * food.amount_grams) /
-                            100
-                          ).toFixed(0)}{" "}
+                          {food.calories.toFixed(0)}{" "}
                           cal
                         </span>
                         <span>
-                          {(
-                            (food.protein_per_serving * food.amount_grams) /
-                            100
-                          ).toFixed(1)}
+                          {food.protein.toFixed(1)}
                           g protein
                         </span>
                         <span>
-                          {(
-                            (food.carbs_per_serving * food.amount_grams) /
-                            100
-                          ).toFixed(1)}
+                          {food.carbs.toFixed(1)}
                           g carbs
                         </span>
                         <span>
-                          {(
-                            (food.fat_per_serving * food.amount_grams) /
-                            100
-                          ).toFixed(1)}
+                          {food.fat.toFixed(1)}
                           g fat
                         </span>
                       </div>
