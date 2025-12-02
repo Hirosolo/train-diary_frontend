@@ -170,7 +170,7 @@ const Foods: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/food-logs?date=${date}`);
+      const res = await fetch(`${API_URL}/food-logs?user_id=${user.user_id}&date=${date}`);
       if (!res.ok) {
         console.error("Failed to fetch meals for date:", await res.text());
         setMeals([]);
