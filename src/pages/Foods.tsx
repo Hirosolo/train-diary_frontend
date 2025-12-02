@@ -15,7 +15,12 @@ import {
 } from "../components/shared/SharedComponents";
 import styles from "./Foods.module.css";
 
-import { API_URL, addFoodLog, deleteFoodLog } from "../api";
+import {
+  API_URL,
+  addFoodLog,
+  deleteFoodLog,
+  getDailyFoodIntake,
+} from "../api";
 
 interface Meal {
   meal_id: number;
@@ -24,6 +29,7 @@ interface Meal {
 }
 
 interface MealFood {
+  food_id?: number;
   name: string;
   calories_per_serving: number;
   protein_per_serving: number;
@@ -47,60 +53,12 @@ interface MealWithFoods extends Meal {
   foods: MealFood[];
 }
 
-const MEAL_CACHE_KEY = "mealCache";
-const MEAL_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
-const getDayStamp = () => new Date().toISOString().slice(0, 10);
-
-interface MealsCachePayload {
-  meals: MealWithFoods[];
-  fetchedAt: number;
-  dayStamp: string;
-}
-
-const readMealsCache = (): MealsCachePayload | null => {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(MEAL_CACHE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed?.meals)) {
-      return parsed as MealsCachePayload;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-};
-
-const persistMealsCache = (meals: MealWithFoods[]): MealsCachePayload => {
-  const payload: MealsCachePayload = {
-    meals,
-    fetchedAt: Date.now(),
-    dayStamp: getDayStamp(),
-  };
-  if (typeof window !== "undefined") {
-    localStorage.setItem(MEAL_CACHE_KEY, JSON.stringify(payload));
-  }
-  return payload;
-};
-
-const shouldRefreshMeals = (cache: MealsCachePayload | null) => {
-  if (!cache) return true;
-  if (cache.dayStamp !== getDayStamp()) return true;
-  return Date.now() - cache.fetchedAt >= MEAL_CACHE_TTL;
-};
-
 const Foods: React.FC = () => {
   const { user, refreshAuthCache } = useAuth();
   const { triggerRefresh } = useDashboardRefresh();
 
-  const [mealsCache, setMealsCache] = useState<MealsCachePayload | null>(
-    () => readMealsCache()
-  );
-  const [meals, setMeals] = useState<MealWithFoods[]>(
-    () => mealsCache?.meals || []
-  );
-  const [loading, setLoading] = useState(() => !mealsCache);
+  const [meals, setMeals] = useState<MealWithFoods[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ log_date: "", meal_type: "breakfast" });
   const [mealFoods, setMealFoods] = useState<
@@ -121,79 +79,48 @@ const Foods: React.FC = () => {
     carbs: 0,
     fat: 0,
   });
+  const [selectedDate, setSelectedDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
 
+  // load meals + daily intake for selected date
   useEffect(() => {
-    if (user) fetchMeals();
-  }, [user]);
+    if (!user || !selectedDate) return;
 
-  useEffect(() => {
-    if (meals.length > 0) {
-      const today = new Date().toISOString().slice(0, 10);
-      const todayMeals = meals.filter((m) => m.log_date.slice(0, 10) === today);
-      const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    fetchMealsByDate(selectedDate);
 
-      todayMeals.forEach((meal) => {
-        totals.calories += calculateMealNutrition(meal.foods, "calories");
-        totals.protein += calculateMealNutrition(meal.foods, "protein");
-        totals.carbs += calculateMealNutrition(meal.foods, "carbs");
-        totals.fat += calculateMealNutrition(meal.foods, "fat");
-      });
-
-      setDailyTotals(totals);
-    }
-  }, [meals]);
-
-  const fetchMeals = async (force = false) => {
-    if (!user?.user_id) return;
-
-    const needsRefresh = force || shouldRefreshMeals(mealsCache);
-
-    if (!needsRefresh && mealsCache) {
-      setMeals(mealsCache.meals);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    console.log("Refreshing meal logs...");
-    try {
-      const mealsRes = await fetch(
-        `${API_URL}/food-logs?user_id=${user.user_id}`
-      );
-      const mealsData = await mealsRes.json();
-
-      const mealsWithFoods = await Promise.all(
-        mealsData.map(async (meal: Meal) => {
-          const foodsRes = await fetch(
-            `${API_URL}/food-logs?meal_id=${meal.meal_id}`
-          );
-          const foodsData = await foodsRes.json();
-
-          const flattenedFoods =
-            foodsData[0]?.user_meal_details?.map((detail: any) => ({
-              name: detail.foods.name,
-              calories_per_serving: detail.foods.calories_per_serving,
-              protein_per_serving: detail.foods.protein_per_serving,
-              carbs_per_serving: detail.foods.carbs_per_serving,
-              fat_per_serving: detail.foods.fat_per_serving,
-              amount_grams: detail.amount_grams,
-            })) || [];
-
-          return { ...meal, foods: flattenedFoods };
-        })
-      );
-
-      setMeals(mealsWithFoods);
-      const payload = persistMealsCache(mealsWithFoods);
-      setMealsCache(payload);
-    } catch (error) {
-      console.error("Error fetching meals:", error);
-    }
-    setLoading(false);
-  };
-
+    (async () => {
+      try {
+        const res = await getDailyFoodIntake(user.user_id, selectedDate);
+        setDailyTotals({
+          calories: res.calories ?? 0,
+          protein: res.protein ?? 0,
+          carbs: res.carbs ?? 0,
+          fat: res.fat ?? 0,
+        });
+      } catch (err) {
+        console.error("Error fetching daily intake:", err);
+        setDailyTotals({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+      }
+    })();
+  }, [user, selectedDate]);
+  
   const handleRefreshMeals = async () => {
-    await fetchMeals(true);
+    if (!selectedDate || !user) return;
+
+    await fetchMealsByDate(selectedDate);
+    try {
+      const res = await getDailyFoodIntake(user.user_id, selectedDate);
+      setDailyTotals({
+        calories: res.calories ?? 0,
+        protein: res.protein ?? 0,
+        carbs: res.carbs ?? 0,
+        fat: res.fat ?? 0,
+      });
+    } catch (err) {
+      console.error("Error refreshing daily intake:", err);
+    }
+
     refreshAuthCache("meals-manual-refresh");
   };
 
@@ -231,9 +158,89 @@ const Foods: React.FC = () => {
     servingType: string | undefined
   ): number | null => {
     if (!servingType) return null;
-    const match = servingType.match(/(\d+(?:\.\d+)?)\s*g/i);
+    // Match values like "100g", "100 g", "150.5g", etc.
+    const match = servingType.match(/(\d+(?:\.\d+)?)[ ]*g/i);
     return match ? parseFloat(match[1]) : null;
   };
+
+  // fetch all meals (with foods) for a specific day
+  const fetchMealsByDate = async (date: string) => {
+    if (!user?.user_id || !date) return;
+
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/food-logs?date=${date}`);
+      if (!res.ok) {
+        console.error("Failed to fetch meals for date:", await res.text());
+        setMeals([]);
+        return;
+      }
+
+      const mealsData = await res.json();
+
+      const mealsWithFoods = await Promise.all(
+        mealsData.map(async (meal: any) => {
+          let foods: MealFood[] =
+            meal.user_meal_details?.map((detail: any) => ({
+              food_id: detail.food?.food_id,
+              name: detail.food?.name ?? "Unknown Food",
+              calories_per_serving: detail.food?.calories_per_serving ?? 0,
+              protein_per_serving: detail.food?.protein_per_serving ?? 0,
+              carbs_per_serving: detail.food?.carbs_per_serving ?? 0,
+              fat_per_serving: detail.food?.fat_per_serving ?? 0,
+              amount_grams: detail.amount_grams,
+            })) || [];
+
+          // keep foods nutrition in sync with /foods endpoint
+          foods = await Promise.all(
+            foods.map(async (food: MealFood) => {
+              if (!food.food_id) return food;
+
+              try {
+                const foodRes = await fetch(
+                  `${API_URL}/foods?food_id=${food.food_id}`
+                );
+                if (!foodRes.ok) return food;
+
+                const data = await foodRes.json();
+                const real = Array.isArray(data) ? data[0] : data;
+
+                return {
+                  ...food,
+                  calories_per_serving:
+                    real?.calories_per_serving ?? food.calories_per_serving,
+                  protein_per_serving:
+                    real?.protein_per_serving ?? food.protein_per_serving,
+                  carbs_per_serving:
+                    real?.carbs_per_serving ?? food.carbs_per_serving,
+                  fat_per_serving:
+                    real?.fat_per_serving ?? food.fat_per_serving,
+                };
+              } catch {
+                return food;
+              }
+            })
+          );
+
+          return {
+            meal_id: meal.meal_id,
+            log_date: meal.log_date,
+            meal_type: meal.meal_type,
+            foods,
+          };
+        })
+      );
+
+      setMeals(mealsWithFoods);
+    } catch (error) {
+      console.error("Error fetching meals by date:", error);
+      setMeals([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handleSelectFood = (food: Food) => {
     setSelectedFood(food);
@@ -280,7 +287,22 @@ const Foods: React.FC = () => {
         foods: foodsPayload,
       });
 
-      await fetchMeals(true);
+      const dateToRefresh = form.log_date || selectedDate;
+      if (dateToRefresh && user?.user_id) {
+        setSelectedDate(dateToRefresh);
+        await fetchMealsByDate(dateToRefresh);
+        try {
+          const res = await getDailyFoodIntake(user.user_id, dateToRefresh);
+          setDailyTotals({
+            calories: res.calories ?? 0,
+            protein: res.protein ?? 0,
+            carbs: res.carbs ?? 0,
+            fat: res.fat ?? 0,
+          });
+        } catch (err) {
+          console.error("Error updating daily intake after logging meal:", err);
+        }
+      }
       triggerRefresh();
       refreshAuthCache("meal-logged");
       setForm({ log_date: "", meal_type: "breakfast" });
@@ -300,21 +322,22 @@ const Foods: React.FC = () => {
     }
 
     try {
-      const res = await fetch(`${API_URL}/food-logs?meal_id=${meal_id}`);
+      const res = await fetch(`${API_URL}/meal-details?meal_id=${meal_id}`);
+
       const data = await res.json();
 
-      const flattenedDetails =
-        data[0]?.user_meal_details?.map((detail: any) => ({
-          name: detail.foods.name,
-          calories_per_serving: detail.foods.calories_per_serving,
-          protein_per_serving: detail.foods.protein_per_serving,
-          carbs_per_serving: detail.foods.carbs_per_serving,
-          fat_per_serving: detail.foods.fat_per_serving,
-          amount_grams: detail.amount_grams,
-        })) || [];
+      const mappedDetails = data.map((item: any) => ({
+        food_id: item.food.food_id,
+        name: item.food.name,
+        calories_per_serving: item.food.calories_per_serving,
+        protein_per_serving: item.food.protein_per_serving,
+        carbs_per_serving: item.food.carbs_per_serving,
+        fat_per_serving: item.food.fat_per_serving,
+        amount_grams: item.amount_grams,
+      }));
 
       setExpandedMeal(meal_id);
-      setMealDetails(flattenedDetails);
+      setMealDetails(mappedDetails);
     } catch (err) {
       console.error("Error loading meal details:", err);
     }
@@ -326,32 +349,26 @@ const Foods: React.FC = () => {
         await deleteFoodLog(deleteMealId);
 
         setDeleteMealId(null);
-        await fetchMeals(true);
+        if (selectedDate && user?.user_id) {
+          await fetchMealsByDate(selectedDate);
+          try {
+            const res = await getDailyFoodIntake(user.user_id, selectedDate);
+            setDailyTotals({
+              calories: res.calories ?? 0,
+              protein: res.protein ?? 0,
+              carbs: res.carbs ?? 0,
+              fat: res.fat ?? 0,
+            });
+          } catch (err) {
+            console.error("Error updating daily intake after deleting meal:", err);
+          }
+        }
         triggerRefresh();
         refreshAuthCache("meal-deleted");
       } catch (err) {
         console.error("Error deleting meal:", err);
       }
     }
-  };
-
-  const calculateMealNutrition = (
-    meal: MealFood[],
-    type: "calories" | "protein" | "carbs" | "fat"
-  ): number => {
-    return meal.reduce((total, food) => {
-      const servingMultiplier = food.amount_grams / 100;
-      switch (type) {
-        case "calories":
-          return total + food.calories_per_serving * servingMultiplier;
-        case "protein":
-          return total + food.protein_per_serving * servingMultiplier;
-        case "carbs":
-          return total + food.carbs_per_serving * servingMultiplier;
-        case "fat":
-          return total + food.fat_per_serving * servingMultiplier;
-      }
-    }, 0);
   };
 
   const formatDate = (dateStr: string) => {
@@ -366,6 +383,19 @@ const Foods: React.FC = () => {
   return (
     <PageContainer>
       <Navbar />
+      <div style={{ marginTop: "4rem", marginBottom: "1rem" }}>
+        <label style={{ fontWeight: "bold", marginRight: "0.5rem"}}>
+          Nutrition on
+        </label>
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => {
+            setSelectedDate(e.target.value);
+          }}
+          style={{ padding: "0.3rem", borderRadius: "6px", marginTop:"0.5rem"}}
+        />
+      </div>
 
       <CardGrid className={styles.statsGrid}>
         <StatCard
@@ -408,7 +438,9 @@ const Foods: React.FC = () => {
             Log New Meal
           </button>
           <button
-            className={styles.refreshBtn ? styles.refreshBtn : styles.logMealBtn}
+            className={
+              styles.refreshBtn ? styles.refreshBtn : styles.logMealBtn
+            }
             style={{ alignSelf: "flex-end ", backgroundColor: "#4a5568" }}
             onClick={handleRefreshMeals}
             disabled={loading}
@@ -418,10 +450,10 @@ const Foods: React.FC = () => {
         </div>
       </div>
 
-      <CardGrid>
+      <CardGrid style={{display:"flex"}}>
         {loading ? (
           <Card className={styles.loadingCard}>
-            <LoadingDots/>
+            <LoadingDots />
           </Card>
         ) : meals.length === 0 ? (
           <Card className={styles.emptyCard}>
@@ -483,6 +515,20 @@ const Foods: React.FC = () => {
                             100
                           ).toFixed(1)}
                           g protein
+                        </span>
+                        <span>
+                          {(
+                            (food.carbs_per_serving * food.amount_grams) /
+                            100
+                          ).toFixed(1)}
+                          g carbs
+                        </span>
+                        <span>
+                          {(
+                            (food.fat_per_serving * food.amount_grams) /
+                            100
+                          ).toFixed(1)}
+                          g fat
                         </span>
                       </div>
                     </div>

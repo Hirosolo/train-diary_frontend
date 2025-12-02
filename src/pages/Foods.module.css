@@ -40,6 +40,7 @@
   flex-direction: column;
   justify-content: space-between;
   min-height: 180px;
+  width: 140%;
   transition: all 0.3s ease;
   position: relative;
   background: rgba(30, 34, 44, 0.55);

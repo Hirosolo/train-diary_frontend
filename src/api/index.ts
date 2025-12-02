@@ -230,6 +230,28 @@ export const deleteFood = (food_id: number): Promise<FoodDeleteResponse> =>
     successMessage: "Food deleted",
   });
 
+// --- DAILY FOOD INTAKE ---
+export interface DailyFoodIntake {
+  user_id: number;
+  date: string;
+  meals_count: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export const getDailyFoodIntake = (
+  user_id: number,
+  date: string
+): Promise<DailyFoodIntake> =>
+  request<DailyFoodIntake>(
+    `${API_URL}/food-logs/daily-intake?user_id=${user_id}&date=${date}`,
+    {
+      headers: getHeaders(),
+    }
+  );
+
 // --- SUMMARY ---
 interface DailyData {
   date: string;
