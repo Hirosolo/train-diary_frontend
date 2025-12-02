@@ -62,7 +62,7 @@ const Foods: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ log_date: "", meal_type: "breakfast" });
   const [mealFoods, setMealFoods] = useState<
-    { food: Food; amount_grams: string }[]
+    { food: Food; amount_grams: string; serving_type: string }[]
   >([]);
   const [showFoodModal, setShowFoodModal] = useState(false);
   const [foods, setFoods] = useState<Food[]>([]);
@@ -257,7 +257,7 @@ const Foods: React.FC = () => {
 
       setMealFoods([
         ...mealFoods,
-        { food: selectedFood, amount_grams: amountInGrams.toString() },
+        { food: selectedFood, amount_grams: amountInGrams.toString(), serving_type: selectedFood.serving_type },
       ]);
       setShowFoodModal(false);
       setSelectedFood(null);
@@ -574,7 +574,7 @@ const Foods: React.FC = () => {
               {mealFoods.map((mealFood, idx) => (
                 <div key={idx} className={styles.foodItem}>
                   <span>{mealFood.food.name}</span>
-                  <span>{mealFood.amount_grams}g</span>
+                  <span>{mealFood.amount_grams} {mealFood.serving_type}</span>
                   <button
                     type="button"
                     className="btn-icon-danger"
