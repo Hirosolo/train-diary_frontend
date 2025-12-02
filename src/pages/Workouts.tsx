@@ -185,6 +185,7 @@ const Workouts: React.FC = () => {
   });
   const [logExerciseId, setLogExerciseId] = useState<number | null>(null);
   const [completingSession, setCompletingSession] = useState(false);
+  const [exerciseSearch, setExerciseSearch] = useState("");
 
   useEffect(() => {
     if (user && !authLoading) fetchSessions();
@@ -365,6 +366,10 @@ const Workouts: React.FC = () => {
     }
   };
 
+  const filteredExercises = allExercises.filter((ex) =>
+    ex.name.toLowerCase().includes(exerciseSearch.toLowerCase())
+  );
+  
   const openLogModal = (exerciseId: number) => {
     setLogExerciseId(exerciseId);
     setLogForm({ actual_sets: "", actual_reps: "", weight_kg: "", notes: "" });
@@ -532,7 +537,11 @@ const Workouts: React.FC = () => {
       >
         <button
           className={styles.scheduleBtn}
-          style={{ alignSelf: "flex-end", marginBottom: "2.5rem", marginTop: "0.5rem" }}
+          style={{
+            alignSelf: "flex-end",
+            marginBottom: "2.5rem",
+            marginTop: "0.5rem",
+          }}
           onClick={() => setShowForm(true)}
         >
           Schedule a workout
@@ -664,7 +673,11 @@ const Workouts: React.FC = () => {
             {error && <div className={styles.error}>{error}</div>}
 
             <div className={styles.modalActions}>
-              <button type="submit" className={styles.scheduleBtn} style={{paddingLeft: "1.5rem"}}>
+              <button
+                type="submit"
+                className={styles.scheduleBtn}
+                style={{ paddingLeft: "1.5rem" }}
+              >
                 Schedule
               </button>
               <button
@@ -841,8 +854,23 @@ const Workouts: React.FC = () => {
           title="Add Exercise to Session"
           onClose={() => setShowAddExerciseModal(false)}
         >
+          <input
+            type="text"
+            placeholder="Search exercises..."
+            value={exerciseSearch}
+            onChange={(e) => setExerciseSearch(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px",
+              marginBottom: "1rem",
+              borderRadius: 6,
+              border: "1px solid #444",
+              background: "#222",
+              color: "#fff",
+            }}
+          />
           <div className={styles.exerciseGrid}>
-            {allExercises.map((exercise) => (
+            {filteredExercises.map((exercise) => (
               <div
                 key={exercise.exercise_id}
                 className={`${styles.exerciseOption} ${
@@ -900,7 +928,7 @@ const Workouts: React.FC = () => {
               style={{
                 width: 80,
                 padding: 8,
-                marginTop:"1rem",
+                marginTop: "1rem",
                 borderRadius: 6,
                 border: "1px solid #444",
                 background: "#222",
@@ -921,7 +949,7 @@ const Workouts: React.FC = () => {
               style={{
                 width: 80,
                 padding: 8,
-                marginTop:"1rem",
+                marginTop: "1rem",
                 borderRadius: 6,
                 border: "1px solid #444",
                 background: "#222",
@@ -930,7 +958,7 @@ const Workouts: React.FC = () => {
             />
             <button
               className={styles.addExerciseBtn}
-              style={{marginTop:0}}
+              style={{ marginTop: 0 }}
               onClick={handleAddExercise}
               disabled={
                 addExerciseLoading ||
@@ -1051,7 +1079,7 @@ const Workouts: React.FC = () => {
           <div className={styles.modalActions}>
             <button
               className={styles.addExerciseBtn}
-              style={{marginTop:0}}
+              style={{ marginTop: 0 }}
               onClick={handleSubmitLog}
               disabled={!logForm.actual_sets || !logForm.actual_reps}
             >
