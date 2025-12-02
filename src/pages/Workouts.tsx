@@ -513,23 +513,7 @@ const Workouts: React.FC = () => {
   return (
     <PageContainer>
       <Navbar />
-
-      <CardGrid className={styles.statsGrid} style={{ marginTop: "5rem" }}>
-        <StatCard
-          value={workoutStats.totalWorkouts}
-          label="Total Workouts"
-          icon={<FaDumbbell />}
-          className={styles.statCard}
-        />
-        <StatCard
-          value={`${workoutStats.weeklyStreak}`}
-          label="Current Streak"
-          icon={<FaTrophy />}
-          className={styles.statCard}
-        />
-      </CardGrid>
-
-      <div style={{ marginTop: "2.5rem", marginBottom: "0.7rem" }}>
+      <div style={{ marginTop: "4rem"}}>
         <label
           style={{ fontWeight: "bold", marginRight: "0.5rem", display: "block" }}
         >
@@ -546,6 +530,20 @@ const Workouts: React.FC = () => {
           }}
         />
       </div>
+      <CardGrid className={styles.statsGrid} style={{ marginTop: "3rem" }}>
+        <StatCard
+          value={workoutStats.totalWorkouts}
+          label="Total Workouts"
+          icon={<FaDumbbell />}
+          className={styles.statCard}
+        />
+        <StatCard
+          value={`${workoutStats.weeklyStreak}`}
+          label="Current Streak"
+          icon={<FaTrophy />}
+          className={styles.statCard}
+        />
+      </CardGrid>
 
       <div
         style={{
